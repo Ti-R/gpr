@@ -1,9 +1,11 @@
 // =================================================================================================
-// Copyright 2004 Adobe Systems Incorporated
+// Copyright 2004 Adobe
 // All Rights Reserved.
 //
 // NOTICE:	Adobe permits you to use, modify, and distribute this file in accordance with the terms
-// of the Adobe license agreement accompanying it.
+// of the Adobe license agreement accompanying it. If you have received this file from a source other 
+// than Adobe, then your use, modification, or distribution of it requires the prior written permission
+// of Adobe.
 // =================================================================================================
 
 #include "public/include/XMP_Environment.h"	// ! This must be the first include!
@@ -11,8 +13,13 @@
 
 #include "public/include/client-glue/WXMPMeta.hpp"
 
-#include "XMPCore_Impl.hpp"
-#include "XMPMeta.hpp"
+#include "XMPCore/source/XMPCore_Impl.hpp"
+#include "XMPCore/source/XMPMeta.hpp"
+#include "XMPCore/source/XMPMeta2.hpp"
+#include "XMPCore/XMPCoreDefines.h"
+#if ENABLE_CPP_DOM_MODEL
+	#include "XMPCore/Interfaces/IMetadata_I.h"
+#endif
 
 #if XMP_WinBuild
 	#pragma warning ( disable : 4101 ) // unreferenced local variable
@@ -35,6 +42,7 @@ extern "C" {
 /* class static */ void
 WXMPMeta_GetVersionInfo_1 ( XMP_VersionInfo * info )
 {
+	WXMP_Result void_wResult;
 	WXMP_Result * wResult = &void_wResult;	// ! Needed to "fool" the EnterWrapper macro.
 	XMP_ENTER_NoLock ( "WXMPMeta_GetVersionInfo_1" )
 
@@ -45,6 +53,7 @@ WXMPMeta_GetVersionInfo_1 ( XMP_VersionInfo * info )
 
 // -------------------------------------------------------------------------------------------------
 
+#if ! AdobePrivate
 /* class static */ void
 WXMPMeta_Initialize_1 ( WXMP_Result * wResult )
 {
@@ -54,11 +63,31 @@ WXMPMeta_Initialize_1 ( WXMP_Result * wResult )
 
 	XMP_EXIT
 }
+#else
+/* class static */ void
+WXMPMeta_Initialize_1 ( XMP_AllocateProc AllocateProc,
+                        XMP_DeleteProc   DeleteProc,
+                        WXMP_Result *    wResult )
+{
+	XMP_ENTER_NoLock ( "WXMPMeta_Initialize_1" )
+	
+		if ( ((AllocateProc == 0) && (DeleteProc != 0)) ||
+		     ((AllocateProc != 0) && (DeleteProc == 0)) ) {
+			XMP_Throw ( "The allocate/delete functions must be provided together or not at all", kXMPErr_BadParam );
+		}
+
+		wResult->int32Result = XMPMeta::Initialize ( AllocateProc, DeleteProc );
+
+	XMP_EXIT
+}
+#endif
+
 // -------------------------------------------------------------------------------------------------
 
 /* class static */ void
 WXMPMeta_Terminate_1()
 {
+	WXMP_Result void_wResult;
 	WXMP_Result * wResult = &void_wResult;	// ! Needed to "fool" the EnterWrapper macro.
 	XMP_ENTER_NoLock ( "WXMPMeta_Terminate_1" )
 
@@ -76,7 +105,19 @@ WXMPMeta_CTor_1 ( WXMP_Result * wResult )
 {
 	XMP_ENTER_Static ( "WXMPMeta_CTor_1" )	// No lib object yet, use the static entry.
 
-		XMPMeta * xmpObj = new XMPMeta();
+		XMPMeta * xmpObj( NULL );
+        XMP_Bool isCreated = false;
+
+#if ENABLE_CPP_DOM_MODEL
+        if ( sUseNewCoreAPIs ) {
+			 xmpObj = new XMPMeta2();
+             isCreated = true;
+        }
+#endif 
+
+		if(!isCreated)
+			xmpObj = new XMPMeta();
+
 		++xmpObj->clientRefs;
 		XMP_Assert ( xmpObj->clientRefs == 1 );
 		wResult->ptrResult = XMPMetaRef ( xmpObj );
@@ -89,6 +130,7 @@ WXMPMeta_CTor_1 ( WXMP_Result * wResult )
 void
 WXMPMeta_IncrementRefCount_1 ( XMPMetaRef xmpObjRef )
 {
+	WXMP_Result void_wResult;
 	WXMP_Result * wResult = &void_wResult;	// ! Needed to "fool" the EnterWrapper macro.
 	XMP_ENTER_ObjWrite ( XMPMeta, "WXMPMeta_IncrementRefCount_1" )
 
@@ -103,6 +145,7 @@ WXMPMeta_IncrementRefCount_1 ( XMPMetaRef xmpObjRef )
 void
 WXMPMeta_DecrementRefCount_1 ( XMPMetaRef xmpObjRef )
 {
+	WXMP_Result void_wResult;
 	WXMP_Result * wResult = &void_wResult;	// ! Needed to "fool" the EnterWrapper macro.
 	XMP_ENTER_ObjWrite ( XMPMeta, "WXMPMeta_DecrementRefCount_1" )
 
@@ -143,6 +186,60 @@ WXMPMeta_SetGlobalOptions_1 ( XMP_OptionBits options,
 
 	XMP_EXIT
 }
+#if AdobePrivate
+// -------------------------------------------------------------------------------------------------
+
+/* class static */ void
+WXMPMeta_GetMemProcs_1 ( XMP_AllocateProc * AllocateProc,
+                         XMP_DeleteProc *   DeleteProc,
+                         WXMP_Result *      wResult )
+{
+	XMP_ENTER_Static ( "WXMPMeta_GetMemProcs_1" )
+
+		if ( (AllocateProc == 0) || (DeleteProc == 0) ) XMP_Throw ( "Null output pointer", kXMPErr_BadParam );
+		
+		#if XMP_StaticBuild
+			XMP_Throw ( "XMP memory procs are only supported in DLL builds", kXMPErr_Unavailable );
+		#else
+			*AllocateProc = sXMP_MemAlloc;
+			*DeleteProc   = sXMP_MemFree;
+		#endif
+
+	XMP_EXIT
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/* class static */ void
+WXMPMeta_RegisterAssertNotify_1 ( void * ignoredOldParam,
+								  XMP_AssertNotifyProc	notifyProc,
+								  void *				refCon,
+								  WXMP_Result *			wResult )
+{
+	XMP_ENTER_Static ( "WXMPMeta_RegisterAssertNotify_1" )
+
+		IgnoreParam (ignoredOldParam);
+		if ( notifyProc == 0 ) XMP_Throw ( "Null client notify routine", kXMPErr_BadParam );
+
+		XMPMeta::RegisterAssertNotify ( notifyProc, refCon );
+
+	XMP_EXIT
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/* class static */ void
+WXMPMeta_UnregisterAssertNotify_1 ( XMP_AssertNotifyProc notifyProc,
+									WXMP_Result *		 wResult )
+{
+	XMP_ENTER_Static ( "WXMPMeta_UnregisterAssertNotify_1" )
+
+		XMPMeta::UnregisterAssertNotify ( notifyProc );
+
+	XMP_EXIT
+}
+#endif
+
 // -------------------------------------------------------------------------------------------------
 
 /* class static */ void
@@ -161,6 +258,25 @@ WXMPMeta_DumpNamespaces_1 ( XMP_TextOutputProc outProc,
 }
 
 // -------------------------------------------------------------------------------------------------
+
+#if AdobePrivate
+/* class static */ void
+WXMPMeta_DumpPropertyTraits_1 ( XMP_TextOutputProc outProc,
+								void *			   refCon,
+								WXMP_Result *	   wResult )
+{
+	XMP_ENTER_Static ( "WXMPMeta_DumpPropertyTraits_1" )
+
+		if ( outProc == 0 ) XMP_Throw ( "Null client output routine", kXMPErr_BadParam );
+		
+		XMP_Status status = XMPMeta::DumpPropertyTraits ( outProc, refCon );
+		wResult->int32Result = status;
+
+	XMP_EXIT
+}
+
+// -------------------------------------------------------------------------------------------------
+#endif
 
 /* class static */ void
 WXMPMeta_RegisterNamespace_1 ( XMP_StringPtr namespaceURI,
@@ -246,6 +362,26 @@ WXMPMeta_DeleteNamespace_1 ( XMP_StringPtr namespaceURI,
 	XMP_EXIT
 }
 
+#if AdobePrivate
+// -------------------------------------------------------------------------------------------------
+
+/* class static */ void
+WXMPMeta_RegisterPropertyTraits_1 ( XMP_StringPtr  schemaNS,
+									XMP_StringPtr  propName,
+									XMP_OptionBits options,
+									WXMP_Result *  wResult )
+{
+	XMP_ENTER_Static ( "WXMPMeta_RegisterPropertyTraits_1" )
+
+		if ( (schemaNS == 0) || (*schemaNS == 0) ) XMP_Throw ( "Empty schema namespace URI", kXMPErr_BadSchema );
+		if ( (propName == 0) || (*propName == 0) ) XMP_Throw ( "Empty property name", kXMPErr_BadXPath );
+
+		XMPMeta::RegisterPropertyTraits ( schemaNS, propName, options );
+
+	XMP_EXIT
+}
+#endif
+
 // =================================================================================================
 // Class Method Wrappers
 // =====================
@@ -266,6 +402,8 @@ WXMPMeta_GetProperty_1 ( XMPMetaRef		  xmpObjRef,
 		
 		XMP_StringPtr valuePtr = 0;
 		XMP_StringLen valueSize = 0;
+
+		XMP_OptionBits voidOptionBits = 0;
 		if ( options == 0 ) options = &voidOptionBits;
 
 		bool found = thiz.GetProperty ( schemaNS, propName, &valuePtr, &valueSize, options );
@@ -295,6 +433,8 @@ WXMPMeta_GetArrayItem_1 ( XMPMetaRef	   xmpObjRef,
 		
 		XMP_StringPtr valuePtr = 0;
 		XMP_StringLen valueSize = 0;
+
+		XMP_OptionBits voidOptionBits = 0;
 		if ( options == 0 ) options = &voidOptionBits;
 
 		bool found = thiz.GetArrayItem ( schemaNS, arrayName, itemIndex, &valuePtr, &valueSize, options );
@@ -327,6 +467,8 @@ WXMPMeta_GetStructField_1 ( XMPMetaRef		 xmpObjRef,
 		
 		XMP_StringPtr valuePtr = 0;
 		XMP_StringLen valueSize = 0;
+
+		XMP_OptionBits voidOptionBits = 0;
 		if ( options == 0 ) options = &voidOptionBits;
 
 		bool found = thiz.GetStructField ( schemaNS, structName, fieldNS, fieldName, &valuePtr, &valueSize, options );
@@ -359,6 +501,8 @@ WXMPMeta_GetQualifier_1 ( XMPMetaRef	   xmpObjRef,
 		
 		XMP_StringPtr valuePtr = 0;
 		XMP_StringLen valueSize = 0;
+
+		XMP_OptionBits voidOptionBits = 0;
 		if ( options == 0 ) options = &voidOptionBits;
 
 		bool found = thiz.GetQualifier ( schemaNS, propName, qualNS, qualName, &valuePtr, &valueSize, options );
@@ -670,6 +814,8 @@ WXMPMeta_GetLocalizedText_1 ( XMPMetaRef	   xmpObjRef,
 		XMP_StringLen langSize = 0;
 		XMP_StringPtr valuePtr = 0;
 		XMP_StringLen valueSize = 0;
+
+		XMP_OptionBits voidOptionBits = 0;
 		if ( options == 0 ) options = &voidOptionBits;
 
 		bool found = thiz.GetLocalizedText ( schemaNS, arrayName, genericLang, specificLang,
@@ -745,6 +891,9 @@ WXMPMeta_GetProperty_Bool_1 ( XMPMetaRef	   xmpObjRef,
 		if ( (schemaNS == 0) || (*schemaNS == 0) ) XMP_Throw ( "Empty schema namespace URI", kXMPErr_BadSchema );
 		if ( (propName == 0) || (*propName == 0) ) XMP_Throw ( "Empty property name", kXMPErr_BadXPath );
 
+		XMP_Bool voidByte = 0; //in case prop value is NULL, inserting dummy object address here, so inner calls does not need to check for NULL.
+		XMP_OptionBits voidOptionBits = 0;
+
 		if ( propValue == 0 ) propValue = &voidByte;
 		if ( options == 0 ) options = &voidOptionBits;
 
@@ -771,6 +920,9 @@ WXMPMeta_GetProperty_Int_1 ( XMPMetaRef		  xmpObjRef,
 		if ( (schemaNS == 0) || (*schemaNS == 0) ) XMP_Throw ( "Empty schema namespace URI", kXMPErr_BadSchema );
 		if ( (propName == 0) || (*propName == 0) ) XMP_Throw ( "Empty property name", kXMPErr_BadXPath );
 
+		XMP_Int32 voidInt32 = 0; //in case prop value is NULL, inserting dummy object address here, so inner calls does not need to check for NULL.
+		XMP_OptionBits voidOptionBits = 0;
+
 		if ( propValue == 0 ) propValue = &voidInt32;
 		if ( options == 0 ) options = &voidOptionBits;
 
@@ -794,6 +946,9 @@ WXMPMeta_GetProperty_Int64_1 ( XMPMetaRef		xmpObjRef,
 		
 		if ( (schemaNS == 0) || (*schemaNS == 0) ) XMP_Throw ( "Empty schema namespace URI", kXMPErr_BadSchema );
 		if ( (propName == 0) || (*propName == 0) ) XMP_Throw ( "Empty property name", kXMPErr_BadXPath );
+
+		XMP_Int64 voidInt64 = 0; //in case prop value is NULL, inserting dummy object address here, so inner calls does not need to check for NULL.
+		XMP_OptionBits voidOptionBits = 0;
 
 		if ( propValue == 0 ) propValue = &voidInt64;
 		if ( options == 0 ) options = &voidOptionBits;
@@ -819,6 +974,9 @@ WXMPMeta_GetProperty_Float_1 ( XMPMetaRef		xmpObjRef,
 		if ( (schemaNS == 0) || (*schemaNS == 0) ) XMP_Throw ( "Empty schema namespace URI", kXMPErr_BadSchema );
 		if ( (propName == 0) || (*propName == 0) ) XMP_Throw ( "Empty property name", kXMPErr_BadXPath );
 
+		double voidDouble = 0.0; //in case prop value is NULL, inserting dummy object address here, so inner calls does not need to check for NULL.
+		XMP_OptionBits voidOptionBits = 0;
+
 		if ( propValue == 0 ) propValue = &voidDouble;
 		if ( options == 0 ) options = &voidOptionBits;
 
@@ -842,6 +1000,9 @@ WXMPMeta_GetProperty_Date_1 ( XMPMetaRef	   xmpObjRef,
 		
 		if ( (schemaNS == 0) || (*schemaNS == 0) ) XMP_Throw ( "Empty schema namespace URI", kXMPErr_BadSchema );
 		if ( (propName == 0) || (*propName == 0) ) XMP_Throw ( "Empty property name", kXMPErr_BadXPath );
+
+		XMP_DateTime voidDateTime; //in case prop value is NULL, inserting dummy object address here, so inner calls does not need to check for NULL.
+		XMP_OptionBits voidOptionBits = 0;
 
 		if ( propValue == 0 ) propValue = &voidDateTime;
 		if ( options == 0 ) options = &voidOptionBits;
@@ -1005,11 +1166,56 @@ WXMPMeta_Clone_1 ( XMPMetaRef	  xmpObjRef,
 {
 	XMP_ENTER_ObjRead ( XMPMeta, "WXMPMeta_Clone_1" )
 
-		XMPMeta * xClone = new XMPMeta;	// ! Don't need an output lock, final ref assignment in client glue.
+		XMPMeta * xClone ( NULL );
+        XMP_Bool isCloned = false;
+#if ENABLE_CPP_DOM_MODEL
+    if(sUseNewCoreAPIs) {
+        isCloned = true;
+		try {
+			const XMPMeta2 & temp = dynamic_cast< const XMPMeta2 & >( thiz );
+			xClone = new XMPMeta2;
+		}
+        catch ( ... ) {
+			xClone = new XMPMeta;
+		}
+     }
+#endif
+    if(!isCloned) {
+       xClone = new XMPMeta;
+    }
+
+
 		thiz.Clone ( xClone, options );
 		XMP_Assert ( xClone->clientRefs == 0 );	// ! Gets incremented in TXMPMeta::Clone.
 		wResult->ptrResult = xClone;
-		
+
+	XMP_EXIT
+}
+
+void
+WXMPMeta_GetIXMPMetadata_1(XMPMetaRef	  xmpObjRef,
+								  WXMP_Result *  wResult )
+{
+	XMP_ENTER_ObjRead( XMPMeta, "WXMPMeta_GetIXMPMetadata_1" )
+    XMP_Bool haveResult = false;
+#if ENABLE_CPP_DOM_MODEL
+    if(sUseNewCoreAPIs){
+        haveResult = true;
+		try {
+			const XMPMeta2 & temp = dynamic_cast< const XMPMeta2 & >( thiz );
+			auto ptr = temp.mDOM.get();
+			wResult->ptrResult = ptr;
+		} catch ( ... ) {
+			wResult->ptrResult = NULL;
+			wResult->errMessage = "Not Available";
+		}
+    }
+#endif
+    if(!haveResult) {
+        wResult->ptrResult = NULL;
+        wResult->errMessage = "Not Available";
+    }
+
 	XMP_EXIT
 }
 
@@ -1033,6 +1239,22 @@ WXMPMeta_CountArrayItems_1 ( XMPMetaRef	   xmpObjRef,
 }
 
 // -------------------------------------------------------------------------------------------------
+
+#if AdobePrivate
+void
+WXMPMeta_MarkStaleProperties_1 ( XMPMetaRef		xmpObjRef,
+								 XMP_OptionBits options,
+								 WXMP_Result *	wResult )
+{
+	XMP_ENTER_ObjWrite ( XMPMeta, "WXMPMeta_MarkStaleProperties_1" )
+
+		thiz->MarkStaleProperties ( options );
+		
+	XMP_EXIT
+}
+
+// -------------------------------------------------------------------------------------------------
+#endif
 
 void
 WXMPMeta_GetObjectName_1 ( XMPMetaRef	 xmpObjRef,
@@ -1132,7 +1354,7 @@ WXMPMeta_SerializeToBuffer_1 ( XMPMetaRef	  xmpObjRef,
 		if ( indent == 0 ) indent = "";
 		
 		thiz.SerializeToBuffer ( &localStr, options, padding, newline, indent, baseIndent );
-		if ( pktString != 0 ) (*SetClientString) ( pktString, localStr.c_str(), localStr.size() );
+		if ( pktString != 0 ) (*SetClientString) ( pktString, localStr.c_str(), static_cast< XMP_StringLen >( localStr.size() ) );
 
 	XMP_EXIT
 }
@@ -1184,6 +1406,17 @@ WXMPMeta_ResetErrorCallbackLimit_1 ( XMPMetaRef    xmpObjRef,
 	XMP_EXIT
 }
 
+
+void WXMPMeta_Use_CPP_DOM_APIs_1(XMP_Bool useNewCoreAPIs,
+								 WXMP_Result * wResult )
+{
+#if ENABLE_CPP_DOM_MODEL
+	XMP_ENTER_Static ( "WXMPMeta_Use_CPP_DOM_APIs_1" )
+		sUseNewCoreAPIs = useNewCoreAPIs;
+	XMP_EXIT
+#endif
+
+}
 // =================================================================================================
 
 #if __cplusplus

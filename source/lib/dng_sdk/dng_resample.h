@@ -1,16 +1,9 @@
 /*****************************************************************************/
-// Copyright 2006-2007 Adobe Systems Incorporated
+// Copyright 2006-2019 Adobe Systems Incorporated
 // All Rights Reserved.
 //
-// NOTICE:  Adobe permits you to use, modify, and distribute this file in
+// NOTICE:	Adobe permits you to use, modify, and distribute this file in
 // accordance with the terms of the Adobe license agreement accompanying it.
-/*****************************************************************************/
-
-/* $Id: //mondo/dng_sdk_1_4/dng_sdk/source/dng_resample.h#1 $ */ 
-/* $DateTime: 2012/05/30 13:28:51 $ */
-/* $Change: 832332 $ */
-/* $Author: tknoll $ */
-
 /*****************************************************************************/
 
 #ifndef __dng_resample__
@@ -63,9 +56,9 @@ class dng_resample_bicubic: public dng_resample_function
 	
 /******************************************************************************/
 
-const uint32 kResampleSubsampleBits  = 7;
+const uint32 kResampleSubsampleBits	 = 7;
 const uint32 kResampleSubsampleCount = 1 << kResampleSubsampleBits;
-const uint32 kResampleSubsampleMask  = kResampleSubsampleCount - 1;
+const uint32 kResampleSubsampleMask	 = kResampleSubsampleCount - 1;
 
 /*****************************************************************************/
 
@@ -151,8 +144,22 @@ class dng_resample_weights
 			
 			DNG_ASSERT (fWeights32->Buffer (), "Weights32 is NULL");
 			
+			if (fract >= kResampleSubsampleCount)
+				{
+				
+				ThrowBadFormat ();
+				
+				}
+			
 			return fWeights32->Buffer_real32 () + fract * fWeightStep;
 			
+			}
+
+		uint32 Weights32BufferLogicalSize () const
+			{
+
+			return fWeights32->LogicalSize ();
+
 			}
 
 		const int16 *Weights16 (uint32 fract) const
@@ -160,8 +167,22 @@ class dng_resample_weights
 			
 			DNG_ASSERT (fWeights16->Buffer (), "Weights16 is NULL");
 			
+			if (fract >= kResampleSubsampleCount)
+				{
+				
+				ThrowBadFormat ();
+				
+				}
+			
 			return fWeights16->Buffer_int16 () + fract * fWeightStep;
 			
+			}
+
+		uint32 Weights16BufferLogicalSize () const
+			{
+
+			return fWeights16->LogicalSize ();
+
 			}
 
 	};
@@ -226,8 +247,17 @@ class dng_resample_weights_2d
 			
 			DNG_ASSERT (fWeights32->Buffer (), "Weights32 is NULL");
 			
+			if (fract.v < 0 || fract.h < 0
+				 || fract.v >= static_cast<int32> (kResampleSubsampleCount2D)
+				 || fract.h >= static_cast<int32> (kResampleSubsampleCount2D))
+				{
+				
+				ThrowBadFormat ();
+				
+				}
+			
 			const uint32 offset = fract.v * fRowStep + fract.h * fColStep;
-
+			
 			return fWeights32->Buffer_real32 () + offset;
 			
 			}
@@ -236,6 +266,15 @@ class dng_resample_weights_2d
 			{
 			
 			DNG_ASSERT (fWeights16->Buffer (), "Weights16 is NULL");
+			
+			if (fract.v < 0 || fract.h < 0
+				 || fract.v >= static_cast<int32> (kResampleSubsampleCount2D)
+				 || fract.h >= static_cast<int32> (kResampleSubsampleCount2D))
+				{
+				
+				ThrowBadFormat ();
+				
+				}
 			
 			const uint32 offset = fract.v * fRowStep + fract.h * fColStep;
 			

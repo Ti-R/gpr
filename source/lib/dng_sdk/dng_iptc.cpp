@@ -1,16 +1,9 @@
 /*****************************************************************************/
-// Copyright 2006-2008 Adobe Systems Incorporated
+// Copyright 2006-2019 Adobe Systems Incorporated
 // All Rights Reserved.
 //
-// NOTICE:  Adobe permits you to use, modify, and distribute this file in
+// NOTICE:	Adobe permits you to use, modify, and distribute this file in
 // accordance with the terms of the Adobe license agreement accompanying it.
-/*****************************************************************************/
-
-/* $Id: //mondo/dng_sdk_1_4/dng_sdk/source/dng_iptc.cpp#1 $ */ 
-/* $DateTime: 2012/05/30 13:28:51 $ */
-/* $Change: 832332 $ */
-/* $Author: tknoll $ */
-
 /*****************************************************************************/
 
 #include "dng_iptc.h"
@@ -20,8 +13,6 @@
 #include "dng_memory_stream.h"
 #include "dng_stream.h"
 #include "dng_utils.h"
-
-#include "stdc_includes.h"
 
 /*****************************************************************************/
 
@@ -43,12 +34,12 @@ dng_iptc::dng_iptc ()
 	
 	,	fDigitalCreationDateTime ()
 	
-	,	fAuthors         ()
+	,	fAuthors		 ()
 	,	fAuthorsPosition ()
 		
-	,	fCity        ()
-	,	fState       ()
-	,	fCountry     ()
+	,	fCity		 ()
+	,	fState		 ()
+	,	fCountry	 ()
 	,	fCountryCode ()
 	
 	,	fLocation ()
@@ -63,7 +54,7 @@ dng_iptc::dng_iptc ()
 		
 	,	fCopyrightNotice ()
 		
-	,	fDescription       ()
+	,	fDescription	   ()
 	,	fDescriptionWriter ()
 	
 	{
@@ -128,8 +119,8 @@ bool dng_iptc::IsEmpty () const
 		return false;
 		}
 		
-	if (fCity   .NotEmpty () ||
-		fState  .NotEmpty () ||
+	if (fCity	.NotEmpty () ||
+		fState	.NotEmpty () ||
 		fCountry.NotEmpty ())
 		{
 		return false;
@@ -170,7 +161,7 @@ bool dng_iptc::IsEmpty () const
 		return false;
 		}
 		
-	if (fDescription      .NotEmpty () ||
+	if (fDescription	  .NotEmpty () ||
 		fDescriptionWriter.NotEmpty ())
 		{
 		return false;
@@ -183,8 +174,8 @@ bool dng_iptc::IsEmpty () const
 /*****************************************************************************/
 
 void dng_iptc::ParseString (dng_stream &stream,
-						    dng_string &s,
-						    CharSet charSet)
+							dng_string &s,
+							CharSet charSet)
 	{
 	
 	uint32 length = stream.Get_uint16 ();
@@ -256,8 +247,8 @@ void dng_iptc::Parse (const void *blockData,
 		
 		if (firstByte != 0x1C) break;
 			
-		uint8  record   = stream.Get_uint8  ();
-		uint8  dataSet  = stream.Get_uint8  ();
+		uint8  record	= stream.Get_uint8	();
+		uint8  dataSet	= stream.Get_uint8	();
 		uint32 dataSize = stream.Get_uint16 ();
 		
 		nextOffset = stream.Position () + dataSize;
@@ -342,8 +333,8 @@ void dng_iptc::Parse (const void *blockData,
 		
 		if (firstByte != 0x1C) break;
 			
-		uint8  record   = stream.Get_uint8  ();
-		uint8  dataSet  = stream.Get_uint8  ();
+		uint8  record	= stream.Get_uint8	();
+		uint8  dataSet	= stream.Get_uint8	();
 		uint32 dataSize = stream.Get_uint16 ();
 		
 		nextOffset = stream.Position () + dataSize;
@@ -764,7 +755,7 @@ dng_memory_block * dng_iptc::Spool (dng_memory_allocator &allocator,
 	if (fUrgency >= 0)
 		{
 		
-		sprintf (s, "%1u", (unsigned) fUrgency);
+		snprintf (s, 64, "%1u", (unsigned) fUrgency);
 		
 		stream.Put_uint16 (0x1C02);
 		stream.Put_uint8  (kUrgencySet);
@@ -785,22 +776,22 @@ dng_memory_block * dng_iptc::Spool (dng_memory_allocator &allocator,
 		{
 		
 		SpoolString (stream,
-				 	 fSupplementalCategories [j],
-				     kSupplementalCategoriesSet,
-				     32,
+					 fSupplementalCategories [j],
+					 kSupplementalCategoriesSet,
+					 32,
 					 charSet);
-				     
+					 
 		}
 	
 	for (j = 0; j < fKeywords.Count (); j++)
 		{
 		
 		SpoolString (stream,
-				 	 fKeywords [j],
-				     kKeywordsSet,
-				     64,
+					 fKeywords [j],
+					 kKeywordsSet,
+					 64,
 					 charSet);
-				     
+					 
 		}
 	
 	SpoolString (stream,

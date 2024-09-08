@@ -1,15 +1,10 @@
 /*****************************************************************************/
-// Copyright 2008 Adobe Systems Incorporated
+// Copyright 2008-2019 Adobe Systems Incorporated
 // All Rights Reserved.
 //
-// NOTICE:  Adobe permits you to use, modify, and distribute this file in
+// NOTICE:	Adobe permits you to use, modify, and distribute this file in
 // accordance with the terms of the Adobe license agreement accompanying it.
 /*****************************************************************************/
-
-/* $Id: //mondo/dng_sdk_1_4/dng_sdk/source/dng_bad_pixels.h#3 $ */ 
-/* $DateTime: 2012/07/11 10:36:56 $ */
-/* $Change: 838485 $ */
-/* $Author: tknoll $ */
 
 /** \file
  * Opcodes to fix defective pixels, including individual pixels and regions (such as
@@ -23,6 +18,7 @@
 
 /*****************************************************************************/
 
+#include "dng_memory.h"
 #include "dng_opcodes.h"
 
 #include <vector>
@@ -77,6 +73,11 @@ class dng_opcode_FixBadPixelsConstant: public dng_filter_opcode
 								  
 	protected:
 	
+#if defined(__clang__) && defined(__has_attribute)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("unsigned-integer-overflow")))
+#endif
+#endif
 		bool IsGreen (int32 row, int32 col) const
 			{
 			return (((uint32) row + (uint32) col + fBayerPhase + (fBayerPhase >> 1)) & 1) == 0;
@@ -102,11 +103,11 @@ class dng_bad_pixel_list
 	
 		// List of bad single pixels.
 	
-		std::vector<dng_point> fBadPoints;
+		dng_std_vector<dng_point> fBadPoints;
 		
 		// List of bad rectangles (usually single rows or columns).
 		
-		std::vector<dng_rect> fBadRects;
+		dng_std_vector<dng_rect> fBadRects;
 		
 	public:
 
@@ -173,7 +174,7 @@ class dng_bad_pixel_list
 		
 		/// Add the specified rectangle to the list of bad rectangles.
 		///
-		/// \param pt The bad rectangle to add.
+		/// \param r The bad rectangle to add.
 
 		void AddRect (const dng_rect &r);
 		
@@ -231,7 +232,7 @@ class dng_opcode_FixBadPixelsList: public dng_filter_opcode
 		enum
 			{
 			kBadPointPadding = 2,
-			kBadRectPadding  = 4
+			kBadRectPadding	 = 4
 			};
 	
 	private:
@@ -285,7 +286,7 @@ class dng_opcode_FixBadPixelsList: public dng_filter_opcode
 									   dng_point &badPoint);
 	
 		virtual void FixClusteredPixel (dng_pixel_buffer &buffer,
-								        uint32 pointIndex,
+										uint32 pointIndex,
 										const dng_rect &imageBounds);
 
 		virtual void FixSingleColumn (dng_pixel_buffer &buffer,

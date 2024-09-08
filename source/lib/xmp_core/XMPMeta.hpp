@@ -2,17 +2,74 @@
 #define __XMPMeta_hpp__
 
 // =================================================================================================
-// Copyright 2003 Adobe Systems Incorporated
+// Copyright 2003 Adobe
 // All Rights Reserved.
 //
 // NOTICE:	Adobe permits you to use, modify, and distribute this file in accordance with the terms
-// of the Adobe license agreement accompanying it.
+// of the Adobe license agreement accompanying it. If you have received this file from a source other 
+// than Adobe, then your use, modification, or distribution of it requires the prior written permission
+// of Adobe.
 // =================================================================================================
+
+#if AdobePrivate
+// =================================================================================================
+// Change history
+// ==============
+//
+// Writers:
+//  AWL Alan Lillich
+//  FNO Frank Nocke
+//  ADC Amandeep Chawla
+//
+// mm-dd-yy who Description of changes, most recent on top.
+//
+// 10-10-12 ADC 5.5-c012 Changed internal implementation of common error notification infrastructure.
+// 09-21-12 AWL 5.5-c011 Remove Transform XMP.
+// 08-14-12 AWL 5.5-c009 Add XMPCore error notifications for RDF parsing errors.
+// 08-08-12 AWL 5.5-c007 XMPCore error notifications for one case of XML parsing, no existing test failures.
+// 08-03-12 AWL 5.5-c006 Remove defunct XMPMeta prevTkVer data member.
+// 08-02-12 AWL 5.5-c005 Implement the internal infrastructure for XMPCore error notifications.
+// 08-01-12 AWL 5.5-c004 Implement public API and glue layer for XMPCore error notifications.
+//
+// 07-16-09 AWL 5.0-c046 Fix XMPDocOps::Clone to not copy all of the thread lock state.
+// 06-11-09 AWL 5.0-c034 Finish threading revamp, implement friendly reader/writer locking.
+// 05-27-09 AWL 5.0-c033 Remove XMPMeta::SendAssertNotify.
+// 05-12-09 AWL 5.0-c029 Finish deprecated function removal.
+// 02-16-09 FNO 5.0-c008 [1647989] Adding 3rd patch by H. Figuiere: adding delete-localized-text function.
+//
+// 02-28-08 AWL 4.2-c046 Add SXMPMeta::Erase.
+// 11-07-07 AWL 4.2-c025 More progress implementing XMPDocOps.
+// 08-27-07 AWL 4.2-c020 Add Sort, change the Dump* routines to hexify non-ASCII characters.
+//
+// 10-12-06 AWL 4.1-c021 [1235816] Remove the new/delete overrides from static builds.
+//
+// 03-24-06 AWL 4.0-c001 Adapt for move to ham-perforce, integrate XMPFiles, bump version to 4.
+//
+// 05-16-05 AWL 3.3-100 Complete the deBIBification, integrate the internal and SDK source. Bump the
+//				version to 3.3 and build to 100, well ahead of main's latest 3.3-009.
+//
+// 04-14-05 AWL 3.2-018 Move the padding param, add overloads to simplify use of SerializeToBuffer.
+// 04-06-05 AWL 3.2-013 [0509601] Normalize "single value" alt-text arrays. Improve the way the root
+//				XML node is found and extract the previous toolkit version number.
+// 02-11-05 AWL 3.2-002 Add client reference counting.
+// 01-28-05 AWL 3.2-001 Remove BIB.
+//
+// 01-26-05 AWL 3.1.1-107 [1141684] Add XMPMeta::UnregisterAssertNotify and XMPMeta::SendAssertNotify.
+// 01-25-05 AWL 3.1.1-106 [1141007] Add XMPMeta::RegisterAssertNotify.
+// 10-20-04 AWL 3.1.1-085 [1084185] Fix XMP_InternalRef to not depend on BIBContainerBase layout.
+//
+// 04-30-04 AWL Add new & delete operators that call BIBMemory functions. Change static objects that
+//				require allocation to explicit pointers.
+// 01-29-04 AWL Add AppendArrayItem.
+// 04-24-03 AWL Initial start on the new implementation.
+//
+// =================================================================================================
+#endif /* AdobePrivate */
 
 #include "public/include/XMP_Environment.h"
 #include "public/include/XMP_Const.h"
-#include "XMPCore_Impl.hpp"
-#include "XMLParserAdapter.hpp"
+#include "XMPCore/source/XMPCore_Impl.hpp"
+#include "source/XMLParserAdapter.hpp"
 
 // -------------------------------------------------------------------------------------------------
 
@@ -33,8 +90,15 @@ public:
 	static void
 	GetVersionInfo ( XMP_VersionInfo * info );
 	
+#if ! AdobePrivate
 	static bool
 	Initialize();
+#else
+	static bool
+	Initialize ( XMP_AllocateProc AllocateProc,
+                 XMP_DeleteProc   DeleteProc );
+#endif
+
 	static void
 	Terminate() RELEASE_NO_THROW;
 
@@ -54,9 +118,26 @@ public:
 
 	// ---------------------------------------------------------------------------------------------
 
+#if AdobePrivate
+	static void
+	RegisterAssertNotify ( XMP_AssertNotifyProc	notifyProc,
+						   void *				refCon );
+
+	static void
+	UnregisterAssertNotify ( XMP_AssertNotifyProc notifyProc );
+
+	// ---------------------------------------------------------------------------------------------
+#endif
+	
 	static XMP_Status
 	DumpNamespaces ( XMP_TextOutputProc outProc,
 					 void *				refCon );
+	
+	#if AdobePrivate
+	static XMP_Status
+	DumpPropertyTraits ( XMP_TextOutputProc outProc,
+						 void *				refCon );
+	#endif
 	
 	// ---------------------------------------------------------------------------------------------
 	
@@ -81,14 +162,23 @@ public:
 
 	// ---------------------------------------------------------------------------------------------
 	
-	bool
+	#if AdobePrivate
+	static void
+	RegisterPropertyTraits ( XMP_StringPtr	schemaNS,
+							 XMP_StringPtr	propName,
+							 XMP_OptionBits options );
+
+	// ---------------------------------------------------------------------------------------------
+	#endif
+	
+	virtual bool
 	GetProperty ( XMP_StringPtr	   schemaNS,
 				  XMP_StringPtr	   propName,
 				  XMP_StringPtr *  propValue,
 				  XMP_StringLen *  valueSize,
 				  XMP_OptionBits * options ) const;
 	
-	bool
+	virtual bool
 	GetArrayItem ( XMP_StringPtr	schemaNS,
 				   XMP_StringPtr	arrayName,
 				   XMP_Index		itemIndex,
@@ -96,7 +186,7 @@ public:
 				   XMP_StringLen *	valueSize,
 				   XMP_OptionBits * options ) const;
 	
-	bool
+	virtual bool
 	GetStructField ( XMP_StringPtr	  schemaNS,
 					 XMP_StringPtr	  structName,
 					 XMP_StringPtr	  fieldNS,
@@ -105,7 +195,7 @@ public:
 					 XMP_StringLen *  valueSize,
 					 XMP_OptionBits * options ) const;
 	
-	bool
+	virtual bool
 	GetQualifier ( XMP_StringPtr	schemaNS,
 				   XMP_StringPtr	propName,
 				   XMP_StringPtr	qualNS,
@@ -116,20 +206,20 @@ public:
 	
 	// ---------------------------------------------------------------------------------------------
 	
-	void
+	virtual void
 	SetProperty ( XMP_StringPtr	 schemaNS,
 				  XMP_StringPtr	 propName,
 				  XMP_StringPtr	 propValue,
 				  XMP_OptionBits options );
 	
-	void
+	virtual void
 	SetArrayItem ( XMP_StringPtr  schemaNS,
 				   XMP_StringPtr  arrayName,
 				   XMP_Index	  itemIndex,
 				   XMP_StringPtr  itemValue,
 				   XMP_OptionBits options );
 	
-	void
+	virtual void
 	AppendArrayItem ( XMP_StringPtr	 schemaNS,
 					  XMP_StringPtr	 arrayName,
 					  XMP_OptionBits arrayOptions,
@@ -144,7 +234,7 @@ public:
 					 XMP_StringPtr	fieldValue,
 					 XMP_OptionBits options );
 	
-	void
+	virtual void
 	SetQualifier ( XMP_StringPtr  schemaNS,
 				   XMP_StringPtr  propName,
 				   XMP_StringPtr  qualNS,
@@ -154,22 +244,22 @@ public:
 	
 	// ---------------------------------------------------------------------------------------------
 	
-	void
+	virtual void
 	DeleteProperty ( XMP_StringPtr schemaNS,
 					 XMP_StringPtr propName );
 	
-	void
+	virtual void
 	DeleteArrayItem ( XMP_StringPtr schemaNS,
 					  XMP_StringPtr arrayName,
 					  XMP_Index		itemIndex );
 	
-	void
+	virtual void
 	DeleteStructField ( XMP_StringPtr schemaNS,
 						XMP_StringPtr structName,
 						XMP_StringPtr fieldNS,
 						XMP_StringPtr fieldName );
 	
-	void
+	virtual void
 	DeleteQualifier ( XMP_StringPtr schemaNS,
 					  XMP_StringPtr propName,
 					  XMP_StringPtr qualNS,
@@ -177,7 +267,7 @@ public:
 	
 	// ---------------------------------------------------------------------------------------------
 	
-	bool
+	virtual bool
 	DoesPropertyExist ( XMP_StringPtr schemaNS,
 						XMP_StringPtr propName ) const;
 	
@@ -200,7 +290,7 @@ public:
 	
 	// ---------------------------------------------------------------------------------------------
 	
-	bool
+	virtual bool
 	GetLocalizedText ( XMP_StringPtr	schemaNS,
 					   XMP_StringPtr	altTextName,
 					   XMP_StringPtr	genericLang,
@@ -211,7 +301,7 @@ public:
 					   XMP_StringLen *	valueSize,
 					   XMP_OptionBits * options ) const;
 	
-	void
+	virtual void
 	SetLocalizedText ( XMP_StringPtr  schemaNS,
 					   XMP_StringPtr  altTextName,
 					   XMP_StringPtr  genericLang,
@@ -219,7 +309,7 @@ public:
 					   XMP_StringPtr  itemValue,
 					   XMP_OptionBits options );
 	
-	void
+	virtual void
 	DeleteLocalizedText (	XMP_StringPtr	schemaNS,
 							XMP_StringPtr	altTextName,
 							XMP_StringPtr	genericLang,
@@ -291,11 +381,11 @@ public:
 	
 	// ---------------------------------------------------------------------------------------------
 	
-	void
+	virtual void
 	GetObjectName ( XMP_StringPtr * namePtr,
 					XMP_StringLen * nameLen ) const;
 
-	void
+	virtual void
 	SetObjectName ( XMP_StringPtr name );
 
 	XMP_OptionBits
@@ -304,31 +394,36 @@ public:
 	void
 	SetObjectOptions ( XMP_OptionBits options );
 
-	void
+	virtual void
 	Sort();
 
-	void
+	virtual void
 	Erase();
 
-	void
+	virtual void
 	Clone ( XMPMeta * clone, XMP_OptionBits options ) const;
 	
-	XMP_Index
+	virtual XMP_Index
 	CountArrayItems ( XMP_StringPtr schemaNS,
 					  XMP_StringPtr arrayName ) const;
 	
+	#if AdobePrivate
 	void
+	MarkStaleProperties ( XMP_OptionBits options );
+	#endif
+	
+	virtual void
 	DumpObject ( XMP_TextOutputProc outProc,
 				 void *				refCon ) const;
 	
 	// ---------------------------------------------------------------------------------------------
 	
-	void
+	virtual void
 	ParseFromBuffer ( XMP_StringPtr	 buffer,
 					  XMP_StringLen	 bufferSize,
 					  XMP_OptionBits options );
 	
-	void
+	virtual void
 	SerializeToBuffer ( XMP_VarString * rdfString,
 						XMP_OptionBits	options,
 						XMP_StringLen	padding,
@@ -344,13 +439,13 @@ public:
 							  void *    context,
 							  XMP_Uns32 limit );
 
-	void
+	virtual void
 	SetErrorCallback ( XMPMeta_ErrorCallbackWrapper wrapperProc,
 					   XMPMeta_ErrorCallbackProc    clientProc,
 					   void *    context,
 					   XMP_Uns32 limit );
 
-	void
+	virtual void
 	ResetErrorCallbackLimit ( XMP_Uns32 limit );
 	
 	class ErrorCallbackInfo : public GenericErrorCallback {
@@ -424,5 +519,22 @@ private:
 };	// class XMPMeta
 
 // =================================================================================================
+
+void
+DumpNodeOptions(XMP_OptionBits	   options,
+				XMP_TextOutputProc outProc,
+				void *			   refCon);
+
+void
+NormalizeDCArrays(XMP_Node * xmpTree);
+
+void
+MoveExplicitAliases(XMP_Node *                   tree,
+					XMP_OptionBits               parseOptions,
+					XMPMeta::ErrorCallbackInfo & errorCallback);
+
+void
+TouchUpDataModel(XMPMeta *                    xmp,
+				 XMPMeta::ErrorCallbackInfo & errorCallback);
 
 #endif	// __XMPMeta_hpp__

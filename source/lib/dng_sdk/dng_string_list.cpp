@@ -1,34 +1,18 @@
 /*****************************************************************************/
-// Copyright 2006-2007 Adobe Systems Incorporated
+// Copyright 2006-2020 Adobe Systems Incorporated
 // All Rights Reserved.
 //
-// NOTICE:  Adobe permits you to use, modify, and distribute this file in
+// NOTICE:	Adobe permits you to use, modify, and distribute this file in
 // accordance with the terms of the Adobe license agreement accompanying it.
 /*****************************************************************************/
 
-/* $Id: //mondo/dng_sdk_1_4/dng_sdk/source/dng_string_list.cpp#1 $ */ 
-/* $DateTime: 2012/05/30 13:28:51 $ */
-/* $Change: 832332 $ */
-/* $Author: tknoll $ */
-
-/*****************************************************************************/
-
 #include "dng_string_list.h"
-
-#include "dng_bottlenecks.h"
-#include "dng_exceptions.h"
-#include "dng_string.h"
-#include "dng_utils.h"
-
-#include "gpr_allocator.h"
 
 /*****************************************************************************/
 
 dng_string_list::dng_string_list ()
 
-	:	fCount     (0)
-	,	fAllocated (0)
-	,	fList      (NULL)
+	:	fList ()
 	
 	{
 	
@@ -39,8 +23,6 @@ dng_string_list::dng_string_list ()
 dng_string_list::~dng_string_list ()
 	{
 	
-	Clear ();
-	
 	}
 
 /*****************************************************************************/
@@ -48,37 +30,7 @@ dng_string_list::~dng_string_list ()
 void dng_string_list::Allocate (uint32 minSize)
 	{
 	
-	if (fAllocated < minSize)
-		{
-		
-		uint32 newSize = Max_uint32 (minSize, fAllocated * 2);
-
-        dng_string **list = (dng_string **)gpr_global_malloc (newSize * sizeof (dng_string *));
-		
-		if (!list)
-			{
-			
-			ThrowMemoryFull ();
-			
-			}
-		
-		if (fCount)
-			{
-			
-			DoCopyBytes (fList, list, fCount * (uint32) sizeof (dng_string *));
-			
-			}
-			
-		if (fList)
-			{
-            gpr_global_free( fList );
-			}
-			
-		fList = list;
-		
-		fAllocated = newSize;
-		
-		}
+	fList.reserve (minSize);
 	
 	}
 					 
@@ -88,28 +40,8 @@ void dng_string_list::Insert (uint32 index,
 							  const dng_string &s)
 	{
 	
-	Allocate (fCount + 1);
-	
-	dng_string *ss = new dng_string (s);
-	
-	if (!ss)
-		{
+	fList.insert (fList.begin () + index, s);
 		
-		ThrowMemoryFull ();
-		
-		}
-		
-	fCount++;
-	
-	for (uint32 j = fCount - 1; j > index; j--)
-		{
-		
-		fList [j] = fList [j - 1];
-		
-		}
-		
-	fList [index] = ss;
-	
 	}
 					 
 /*****************************************************************************/
@@ -117,7 +49,7 @@ void dng_string_list::Insert (uint32 index,
 bool dng_string_list::Contains (const dng_string &s) const
 	{
 	
-	for (uint32 j = 0; j < fCount; j++)
+	for (uint32 j = 0; j < Count (); j++)
 		{
 		
 		if ((*this) [j] == s)
@@ -138,24 +70,7 @@ bool dng_string_list::Contains (const dng_string &s) const
 void dng_string_list::Clear ()
 	{
 	
-	if (fList)
-		{
-		
-		for (uint32 index = 0; index < fCount; index++)
-			{
-			
-			delete fList [index];
-			
-			}
-            
-        gpr_global_free( fList );
-		
-		fList = NULL;
-		
-		}
-		
-	fCount     = 0;
-	fAllocated = 0;
+	fList.clear ();
 	
 	}
 

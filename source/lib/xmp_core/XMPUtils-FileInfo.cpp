@@ -1,17 +1,141 @@
 // =================================================================================================
-// Copyright 2003 Adobe Systems Incorporated
+// Copyright 2003 Adobe
 // All Rights Reserved.
 //
 // NOTICE:	Adobe permits you to use, modify, and distribute this file in accordance with the terms
-// of the Adobe license agreement accompanying it.
+// of the Adobe license agreement accompanying it. If you have received this file from a source other 
+// than Adobe, then your use, modification, or distribution of it requires the prior written permission
+// of Adobe.
 // =================================================================================================
 
-#include <algorithm>	// For binary_search.
+#if AdobePrivate
+// =================================================================================================
+// Change history
+// ==============
+//
+// Writers:
+//	AWL Alan Lillich
+//  SM  Stefan Makswit
+//
+// mm-dd-yy who Description of changes, most recent on top.
+//
+// 03-27-15 AJ  5.6-c068 Checking in complete implementation of XMPUtils with the new Core APIs
+// 02-06-15 AJ  5.6-c037 Fixing warnings due to implicit typecasting
+// 08-20-10	SM 	5.2-c003 [2674672] Discontinue to interpret square brackets 
+//                       as Asian quotes in XMPUtils::SeparateArrayItems(..)
+// 12-02-09 AWL 5.0-c060 [2411289] Fix IsInternalProperty to make bext:version be internal.
+// 12-01-09 AWL 5.0-c059 [2415230] Fix IsInternalProperty for recent xmpDM: and xmpScript: external properties.
+// 10-27-09 AWL 5.0-c058 [2461780] Additional work in ApplyTemplate to avoid empty arrays and structs.
+// 10-22-09 AWL 5.0-c056 [2422169,2422172] Fix ApplyTemplate to not add empty array items or struct fields.
+// 09-01-09 AWL 5.0-c055 [2415230] Tweak to c053 fix: don't replace with empty value.
+// 09-01-09 AWL 5.0-c054 [2408873] Fix typo for IsInternalProperty check of xmpDM:videoAlphaPremultipleColor.
+// 09-01-09 AWL 5.0-c053 [2415230] Replace same language values for ApplyTemplate with Add+Replace.
+// 08-26-09 AWL 5.0-c052 [2408873] Add xmpDM: namespace details to IsInternalProperty.
+// 08-24-09 AWL 5.0-c051 [1911999] Make all of the Camera Raw namespace (crs:) be internal.
+// 07-21-09 AWL 5.0-c047 Add XMPUtils::ApplyTemplate.
+// 06-11-09 AWL 5.0-c034 Finish threading revamp, implement friendly reader/writer locking.
+//
+// 05-06-08 SM  4.2.2-c055 [1776559] DistributeMultiFileXMP: Do property deletion before the distribution.
+// 04-29-08 AWL 4.2.2-c054 [1768777,1768782] Move Get/SetBulkMarkers to XMPMeta_GetSet.cpp, call SetNodeValue.
+// 04-29-08 SM  4.2.2-c053 [1698734] Used RemoveProperties instead of DeleteProperty in DistributeMultiFileXMP.
+// 04-29-08 AWL 4.2.2-c052 [1768777,1768782] Add private performance enhancements for temporal metadata.
+//
+// 01-25-08 AWL 4.2-c037 Change all xap* namespace prefixes to xmp*.
+// 01-22-08 AWL 4.2-c036 Add fixes and comments for the Acrobat security review.
+// 01-02-07 AWL 4.2-c004 [1449038] Add option to XMPUtils::AppendProperties to delete things with
+//				empty values. Used in FileInfo templates to delete sensitive info.
+//
+// 07-11-06 AWL 4.0-c010 [1256092,1305130] Add more internal properties to IsInternalProperty.
+// 03-24-06 AWL 4.0-c001 Adapt for move to ham-perforce, integrate XMPFiles, bump version to 4.
+//
+// 02-21-06 AWL 3.3-015 Expose some of the "File Info" utils. The Adobe Labs build of XMPFiles needs
+//				SXMPUtils::RemoveProperties and SXMPUtils::AppendProperties.
+// 02-03-06 AWL 3.3-014 [1274698] Fix problem in final loop in CollectMultiFileXMP. It was not properly
+//				handling the case of an empty schema getting deleted.
+// 07-15-05 AWL 3.3-001 [1214033] Bump version to 3.3, the SDK is out. Put back missing multi-file utils.
+//
+// 06-07-05 AWL 3.2-114 [1206111] Improve the 3.2-104 fix so that ConvertToDate will tolerate "1:2:3".
+// 06-01-05 AWL 3.2-104 [0528667] Fix ConvertToDate to tolerate a string like "hh:mm:ss".
+// 04-11-05 AWL 3.2-016 Add AdobePrivate conditionals where appropriate.
+// 04-05-05 AWL 3.2-011 [0532345] Normalize xml:lang values so that compares are in effect case
+//				insensitive as required by RFC 3066. Change parsing and serializing to force the
+//				x-default item to be first.
+// 04-01-05 AWL 3.2-010 Add leafOptions parameter to FindNode, used when creating new nodes.
+// 02-14-05 AWL 3.2-004 [1125901] Fix overrun problem in XMPUtils::DecodeFromBase64.
+// 01-28-05 AWL 3.2-001 Remove BIB.
+//
+// 01-27-05 AWL 3.1.1-109 [1140533] Fix XMPUtils::SetTimeZone to workaround a bug in Apple's mktime.
+// 01-07-05 AWL 3.1.1-103 [1115333] Some versions of mktime barf on years before 1970.
+// 12-14-04 AWL 3.1.1-100 [1022350,1075328] Add more namespaces and internal/external properties.
+// 11-08-04 AWL 3.1.1-096 [0664438] Add checks in OpenWorkingDocument and SaveWorkingDocument to
+//				remove the transient schema (xmpx:) used in the File Info multi-file support.
+// 11-08-04 AWL 3.1.1-095 [0663706] Allow null or empty MIME string in SetMIMEMapping - deletes mapping.
+// 11-08-04 AWL 3.1.1-094 [0660881] Preserve qualifiers on existing values in SeparateArrayItems.
+// 11-04-04 AWL 3.1.1-090 [1014853] Add XMPUtils::RemoveMultiValueInfo. Fix AppendProperties to call
+//				RemoveMultiValueInfo, i.e. to mimic a user edit.
+// 10-28-04 AWL 3.1.1-088 [1060796] Fix SetTimeZone to use appropriate date so that daylight savings
+//				time is taken into account, use thread safe time functions, use difftime for offset.
+// 10-21-04 AWL 3.1.1-087 [1070165,1096322] Fix SetTimeZone to set tzSign to zero for GMT.
+// 10-06-04 AWL 3.1.1-083 [1061778] Add lock tracing under TraceXMPLocking.
+// 09-23-04 AWL 3.1.1-080 [1058198,1061778] Fix bugs in CollectMultiFileXMP. Set version to 3.1.1
+//				for Cookie Dough, Gordon branch (Acrobat 7) is 3.1.
+//
+// 08-18-04 AWL 3.1-075 Add HasContainedDoc.
+// 08-04-04 AWL 3.1-072 [1010361] Handle bad times from Photoshop 8 that have a zero date and no time zone.
+// 07-29-04 AWL 3.1-070 [1024539] Fix CatenateArrayItems to verify the separator string.
+// 07-26-04 AWL 3.1-068 [1046381,1046384] Fix XMPUtils::ConvertToXyz to throw instead of assert for
+//				null or empty string. Fix XMPMeta::GetProperty_Xyz to make sure property is simple.
+// 07-14-04 AWL 3.1-063 [1013976] Fix DistributeMultiFileXMP to clear NewImplicit bit on schema node.
+// 07-14-04 AWL 3.1-061 [0664349] Fix SetResourceRef to tolerate null refXMP parameter.
+// 07-14-04 AWL 3.1-059 [0657909] Require registered namespaces in path composition routines.
+// 07-13-04 AWL 3.1-058 [1014255] Remove empty schema nodes.
+// 07-12-04 AWL 3.1-054 [1028368] Fix DecodeFromBase64 to properly handle embedded whitespace.
+//
+// 06-15-04 AWL Add DiffSchema field to the DifferingProperties array elements.
+// 05-06-05 AWL Move GetMainPacket and UpdateMainPacket PacketAccess.cpp.
+// 05-04-04 AWL [1014856] Fix XMPUtils::RemoveProperties to handle a property name at any level, not
+//				just top level. At the same time add optional removal of aliases.
+// 04-30-04 AWL Add new & delete operators that call BIBMemory functions. Change static objects that
+//				require allocation to explicit pointers. Clean up memory leaks.
+// 04-23-04 AWL [1014270] Fix ConvertToDate and internal callers to handle date properties with
+//				empty values, don't assert in ConvertToDate.
+// 04-19-04 AWL [1010249] Fix UpdateMainPacket to actually write the file.
+// 04-08-04 AWL Have GetDateRange and GetMergedListPath also resolve aliases before lookup.
+// 03-29-04 AWL Add Q&D versions of GetMainPacket and UpdateMainPacket.
+// 03-24-04 AWL Improve error checking in time utils. Have CurrentDateTime return local time.
+// 03-23-04 AWL Have IsPropertyMultiValued resolve aliases before lookup.
+// 03-17-04 AWL Cleanup error exceptions, make sure all have a reasonable message.
+// 03-15-04 AWL Fix mixup of sConvertedPath and sConvertedValue in ConvertFromInt and ConvertFromFloat.
+// 03-10-04 AWL Fix bug in IsPropertyMultiValued, bad walk through existing properties.
+// 03-08-04 AWL Fix bugs in IsPropertyMultiValued, GetDateRange, and GetMergedListPath.
+// 02-17-04 AWL Add multi-file utilities. Rename CreateXyzDocument to InitializeXyzDocument.
+// 02-09-04 AWL Start adding the new Document Operation utilities.
+// 05-24-03 AWL Initial start on the new implementation.
+//
+// =================================================================================================
+#endif	// AdobePrivate
 
 #include "public/include/XMP_Environment.h"	// ! This must be the first include!
-#include "XMPCore_Impl.hpp"
+#include "XMPCore/source/XMPCore_Impl.hpp"
 
-#include "XMPUtils.hpp"
+#include "XMPCore/XMPCoreDefines.h"
+#include "XMPCore/source/XMPUtils.hpp"
+#if ENABLE_CPP_DOM_MODEL
+	#include "source/UnicodeInlines.incl_cpp"
+	#include "source/UnicodeConversions.hpp"
+	#include "source/ExpatAdapter.hpp"
+	#include "third-party/zuid/interfaces/MD5.h"
+	#include "XMPCore/Interfaces/IMetadata_I.h"
+	#include "XMPCore/Interfaces/IArrayNode_I.h"
+	#include "XMPCore/Interfaces/ISimpleNode_I.h"
+	#include "XMPCore/Interfaces/INodeIterator_I.h"
+	#include "XMPCore/Interfaces/IPathSegment_I.h"
+	#include "XMPCore/Interfaces/IPath_I.h"
+	#include "XMPCore/Interfaces/INameSpacePrefixMap_I.h"
+	#include "XMPCore/Interfaces/IDOMImplementationRegistry_I.h"
+	#include "XMPCommon/Interfaces/IUTF8String_I.h"
+#endif
+#include <algorithm>	// For binary_search.
 
 #include <time.h>
 #include <string.h>
@@ -127,7 +251,7 @@ ClassifyCharacter ( XMP_StringPtr fullString, size_t offset,
 			*uniChar = (*uniChar << 6) | (UnsByte(fullString[i]) & 0x3F);
 		}
 		
-		XMP_Uns32 upperBits = *uniChar >> 8;	// First filter on just the high order 24 bits.
+		XMP_Uns32 upperBits = static_cast<XMP_Uns32>(*uniChar >> 8);	// First filter on just the high order 24 bits.
 
 		if ( upperBits == 0xFF ) {			// U+FFxx
 
@@ -481,7 +605,7 @@ static int CharStarLess (const char * left, const char * right )
 
 #define IsExternalProperty(s,p) (! IsInternalProperty ( s, p ))
 
-static bool
+bool
 IsInternalProperty ( const XMP_VarString & schema, const XMP_VarString & prop )
 {
 	bool isInternal = false;
@@ -767,11 +891,13 @@ AppendSubtree ( const XMP_Node * sourceNode, XMP_Node * destParent,
 		for ( size_t sourceNum = 0, sourceLim = sourceNode->children.size(); sourceNum != sourceLim && destNode!= NULL; ++sourceNum ) {
 			const XMP_Node * sourceField = sourceNode->children[sourceNum];
 			AppendSubtree ( sourceField, destNode, mergeCompound, replaceOld, deleteEmpty );
-			if ( deleteEmpty && destNode->children.empty() ) {
-				delete ( destNode );
-				destParent->children.erase ( destPos );
-			}
+            if ( deleteEmpty && destNode->children.empty() ) {
+                delete ( destNode );
+                destNode = NULL;
+                destParent->children.erase ( destPos );
+            }
 		}
+
 		
 	} else if ( sourceForm & kXMP_PropArrayIsAltText ) {
 	
@@ -851,6 +977,233 @@ AppendSubtree ( const XMP_Node * sourceNode, XMP_Node * destParent,
 }	// AppendSubtree
 
 
+#if AdobePrivate	// The multi-file utils are still private.
+
+// -------------------------------------------------------------------------------------------------
+// MergeArrayItems
+// ---------------
+
+static void
+MergeArrayItems ( const XMP_Node & newArray, XMP_Node * mergedArray )
+{
+	XMP_Assert ( newArray.options & kXMP_PropValueIsArray );
+	XMP_Assert ( mergedArray->options & kXMP_PropValueIsArray );
+	
+	for ( size_t newNum = 0, newLim = newArray.children.size(); newNum < newLim; ++newNum ) {
+
+		const XMP_Node * newItem = newArray.children[newNum];
+		size_t mergedNum, mergedLim;
+		for ( mergedNum = 0, mergedLim = mergedArray->children.size(); mergedNum < mergedLim; ++mergedNum ) {
+			const XMP_Node * mergedItem = mergedArray->children[mergedNum];
+			if ( CompareSubtrees ( *newItem, *mergedItem ) ) break;
+		}
+		
+		if ( mergedNum == mergedLim ) CloneSubtree ( newItem, mergedArray );
+
+	}
+			
+}	// MergeArrayItems
+
+
+// -------------------------------------------------------------------------------------------------
+// UpdateArrayDifference
+// ---------------------
+
+static void
+UpdateArrayDifference ( XMP_Node * dpItem, const XMP_Node & propNode )
+{
+	XMP_Assert ( propNode.options & kXMP_PropValueIsArray );
+	
+	XMP_Node * mergedList = FindChildNode ( dpItem, "xmpx:DiffMergedList", kXMP_ExistingOnly );
+	XMP_Assert ( mergedList != 0 );
+	
+	MergeArrayItems ( propNode, mergedList );
+			
+}	// UpdateArrayDifference
+
+
+// -------------------------------------------------------------------------------------------------
+// UpdateDateDifference
+// --------------------
+
+static void
+UpdateDateDifference ( XMP_Node * dpItem, const XMP_Node & propNode )
+{
+	XMP_Node * oldestNode = FindChildNode ( dpItem, "xmpx:DiffOldest", kXMP_ExistingOnly );
+	XMP_Node * newestNode = FindChildNode ( dpItem, "xmpx:DiffNewest", kXMP_ExistingOnly );
+	XMP_Assert ( (oldestNode != 0) && (newestNode != 0) );
+	
+	XMP_DateTime propDate;
+	XMP_DateTime rangeDate;
+	
+	if ( propNode.value.empty() ) return;	// ! Ignore missing dates.
+	XMPUtils::ConvertToDate ( propNode.value.c_str(), &propDate );
+	XMPUtils::ConvertToDate ( oldestNode->value.c_str(), &rangeDate );
+
+	if ( XMPUtils::CompareDateTime ( propDate, rangeDate ) == -1 ) {
+		oldestNode->value = propNode.value;
+	} else {
+		XMPUtils::ConvertToDate ( newestNode->value.c_str(), &rangeDate );
+		if ( XMPUtils::CompareDateTime ( propDate, rangeDate ) == +1 ) {
+			newestNode->value = propNode.value;
+		}
+	}
+			
+}	// UpdateDateDifference
+
+
+// -------------------------------------------------------------------------------------------------
+// AddNewDifference
+// ----------------
+//
+// Add a new entry to the DifferingProperties array based on an existing property node.
+
+// *** Sensitive to namespace prefixes, add appropriate asserts!
+// *** At the moment the propNode must be a top level property.
+
+static void AddNewDifference ( XMP_Node * dpArray, const XMP_Node & propNode, bool propIsList, bool propIsDate )
+{
+	XMP_Assert ( (propNode.parent != 0) && (! (propNode.options & kXMP_SchemaNode)) );
+	XMP_Assert ( LookupFieldSelector ( dpArray, "xmpx:DiffPath", propNode.name.c_str() ) == -1 );
+	
+	XMP_Node * dpItem = new XMP_Node ( dpArray, kXMP_ArrayItemName, kXMP_PropValueIsStruct );	// *** AddChild util?
+	dpArray->children.push_back ( dpItem );
+	
+	XMP_Node * dpName = new XMP_Node ( dpItem, "xmpx:DiffPath", propNode.name.c_str(), kXMP_NoOptions );
+	dpItem->children.push_back ( dpName );
+	
+	const XMP_Node * propSchema = propNode.parent;
+	// ! while ( ! (propSchema->options & kXMP_SchemaNode) ) propSchema = propSchema->parent;
+	if ( ! (propSchema->options & kXMP_SchemaNode) ) XMP_Throw ( "AddNewDifference: Property must be top level", kXMPErr_InternalFailure );
+	
+	XMP_Node * dpSchema = new XMP_Node ( dpItem, "xmpx:DiffURI", propSchema->name.c_str(), kXMP_NoOptions );
+	dpItem->children.push_back ( dpSchema );
+
+	if ( propIsList ) {
+		XMP_Node * mergedList = new XMP_Node ( dpItem, "xmpx:DiffMergedList", "", (propNode.options & kXMP_PropArrayFormMask) );
+		dpItem->children.push_back ( mergedList );
+		MergeArrayItems ( propNode, mergedList );	// ! Remove duplicates from first part.
+	} else if ( propIsDate ) {
+		XMP_Assert ( ! (propNode.options & kXMP_PropCompositeMask) ); // ! Catch bool param reversal.
+		XMP_Node * dateNode;
+		dateNode = new XMP_Node ( dpItem, "xmpx:DiffOldest", propNode.value.c_str(), kXMP_NoOptions );
+		dpItem->children.push_back ( dateNode );
+		dateNode = new XMP_Node ( dpItem, "xmpx:DiffNewest", propNode.value.c_str(), kXMP_NoOptions );
+		dpItem->children.push_back ( dateNode );
+	}
+
+}	// AddNewDifference
+
+
+// -------------------------------------------------------------------------------------------------
+// CheckSpecialProperty
+// --------------------
+
+bool
+CheckSpecialProperty ( XMP_VarString propName, XMP_StringPtr specialNames[] )
+{
+
+	for ( size_t i = 0; specialNames[i] != 0; ++i ) {
+		if ( propName == specialNames[i] ) return true;
+	}
+	return false;
+
+}	// CheckSpecialProperty
+
+
+// -------------------------------------------------------------------------------------------------
+// NoteDifferingProperty
+// ---------------------
+//
+// Note the presence of a differing property. Either of the property pointers can be null. If not
+// null they are pointers to the normal property node in the appropriate XMP.
+
+// *** Sensitive to namespace prefixes, add appropriate asserts!
+
+const char * sListProps[] = { "dc:creator", "dc:subject", 0 };
+const char * sDateProps[] = { "xmp:CreateDate", "xmp:ModifyDate", "xmp:MetadataDate", "photoshop:DateCreated",
+									 "tiff:DateTime", "exif:DateTimeOriginal", "exif:DateTimeDigitized", "exif:GPSTimeStamp", 0 };
+
+static void
+NoteDifferingProperty ( XMP_Node *		 xmpxSchema,
+						const XMP_Node * multiProp,		// ! Might be null!
+						const XMP_Node * inputProp )	// ! Might be null!
+{
+	XMP_Assert ( (multiProp != 0) || (inputProp != 0) ); // Can't have both prop pointers be null.
+
+	// ---------------------------------------------------------------------------------------------
+	// Do some common setup, find the xmpx:DifferingProperties array, see if the property is already
+	// noted, decide if the property is a date or catenated list.
+	
+	XMP_Node * dpArray = FindChildNode ( xmpxSchema, "xmpx:DifferingProperties", kXMP_ExistingOnly );
+	XMP_Assert ( dpArray != 0 );
+	
+	const XMP_Node * propNode = multiProp;
+	if ( propNode == 0 ) propNode = inputProp;
+	XMP_Assert ( propNode != 0 );	// Can't have both prop pointers be null.
+	
+	XMP_Index  dpItemIndex = LookupFieldSelector ( dpArray, "xmpx:DiffPath", propNode->name.c_str() );
+	XMP_Node * dpItem = 0;
+	if ( dpItemIndex != -1 ) dpItem = dpArray->children[dpItemIndex];
+	
+	const bool propIsList = CheckSpecialProperty ( propNode->name, sListProps );
+	const bool propIsDate = CheckSpecialProperty ( propNode->name, sDateProps );
+
+	// -----------------------
+	// Process the difference.
+	
+	if ( inputProp == 0 ) {
+
+		// All prior input matched, this input lacks the property.
+		XMP_Assert ( dpItem == 0 );
+		AddNewDifference ( dpArray, *multiProp, propIsList, propIsDate );
+		dpItem = dpArray->children.back();
+		#if TraceMultiFile
+			printf ( "	  New input lacks %s\n", multiProp->name.c_str() ); fflush(stdout);
+		#endif
+					
+	} else if ( multiProp != 0 ) {
+	
+		// The aggregate and input both have the property. All prior input matched, this input differs.
+		XMP_Assert ( dpItem == 0 );
+		AddNewDifference ( dpArray, *multiProp, propIsList, propIsDate );
+		dpItem = dpArray->children.back();
+		if ( propIsDate ) {
+			UpdateDateDifference ( dpItem, *inputProp );
+		} else if ( propIsList ) {
+			UpdateArrayDifference ( dpItem, *inputProp );
+		}
+		#if TraceMultiFile
+			printf ( "	  New input differs for %s\n", inputProp->name.c_str() ); fflush(stdout);
+		#endif
+	
+	} else if ( dpItem == 0 ) {
+	
+		// The property is appearing for the first time in this input.
+		XMP_Assert ( dpItem == 0 );
+		AddNewDifference ( dpArray, *inputProp, propIsList, propIsDate );
+		dpItem = dpArray->children.back();
+		#if TraceMultiFile
+			printf ( "	  Prior input lacks %s\n", inputProp->name.c_str() ); fflush(stdout);
+		#endif
+	
+	} else {
+	
+		// The property is already noted. Since it is present in the input, update a date
+		// range and merge a catenated list. Nothing else to do for regular properties.
+		XMP_Assert ( dpItem != 0 );
+		if ( propIsDate ) {
+			UpdateDateDifference ( dpItem, *inputProp );
+		} else if ( propIsList ) {
+			UpdateArrayDifference ( dpItem, *inputProp );
+		}
+	
+	}
+
+}	// NoteDifferingProperty
+
+#endif	// AdobePrivate
+
 // =================================================================================================
 // Class Static Functions
 // ======================
@@ -859,6 +1212,122 @@ AppendSubtree ( const XMP_Node * sourceNode, XMP_Node * destParent,
 // CatenateArrayItems
 // ------------------
 
+
+#if ENABLE_CPP_DOM_MODEL
+// -------------------------------------------------------------------------------------------------
+// CatenateArrayItems_v2
+// ------------------
+
+/* class static */ void
+XMPUtils::CatenateArrayItems_v2(const XMPMeta & ptr,
+								XMP_StringPtr   schemaNS,
+								XMP_StringPtr   arrayName,
+								XMP_StringPtr   separator,
+								XMP_StringPtr   quotes,
+								XMP_OptionBits  options,
+								XMP_VarString * catedStr)
+{
+	using namespace AdobeXMPCore;
+	using namespace AdobeXMPCommon;
+
+	if(sUseNewCoreAPIs) {
+		const XMPMeta2 & xmpObj = dynamic_cast<const XMPMeta2 &>(ptr);
+		XMP_Assert((schemaNS != 0) && (arrayName != 0)); // ! Enforced by wrapper.
+		XMP_Assert((separator != 0) && (quotes != 0) && (catedStr != 0)); // ! Enforced by wrapper.
+
+		size_t		 strLen, strPos, charLen;
+		UniCharKind	 charKind;
+		UniCodePoint currUCP, openQuote, closeQuote;
+
+		const bool allowCommas = ((options & kXMPUtil_AllowCommas) != 0);
+
+		spINode arrayNode; // ! Move up to avoid gcc complaints.
+		XMP_OptionBits	 arrayForm = 0, arrayOptions = 0;
+		spcINode  currItem;
+
+		// Make sure the separator is OK. It must be one semicolon surrounded by zero or more spaces.
+		// Any of the recognized semicolons or spaces are allowed.
+
+		strPos = 0;
+		strLen = strlen(separator);
+		bool haveSemicolon = false;
+
+		while (strPos < strLen) {
+			ClassifyCharacter(separator, strPos, &charKind, &charLen, &currUCP);
+			strPos += charLen;
+			if (charKind == UCK_semicolon) {
+				if (haveSemicolon) XMP_Throw("Separator can have only one semicolon", kXMPErr_BadParam);
+				haveSemicolon = true;
+			}
+			else if (charKind != UCK_space) {
+				XMP_Throw("Separator can have only spaces and one semicolon", kXMPErr_BadParam);
+			}
+		};
+		if (!haveSemicolon) XMP_Throw("Separator must have one semicolon", kXMPErr_BadParam);
+
+		// Make sure the open and close quotes are a legitimate pair.
+
+		strLen = strlen(quotes);
+		ClassifyCharacter(quotes, 0, &charKind, &charLen, &openQuote);
+		if (charKind != UCK_quote) XMP_Throw("Invalid quoting character", kXMPErr_BadParam);
+
+		if (charLen == strLen) {
+			closeQuote = openQuote;
+		}
+		else {
+			strPos = charLen;
+			ClassifyCharacter(quotes, strPos, &charKind, &charLen, &closeQuote);
+			if (charKind != UCK_quote) XMP_Throw("Invalid quoting character", kXMPErr_BadParam);
+			if ((strPos + charLen) != strLen) XMP_Throw("Quoting string too long", kXMPErr_BadParam);
+		}
+		if (closeQuote != GetClosingQuote(openQuote)) XMP_Throw("Mismatched quote pair", kXMPErr_BadParam);
+
+		// Return an empty result if the array does not exist, hurl if it isn't the right form.
+
+		catedStr->erase();
+
+		XMP_ExpandedXPath arrayPath;
+		ExpandXPath(schemaNS, arrayName, &arrayPath);
+
+		XMPUtils::FindCnstNode((xmpObj.mDOM), arrayPath, arrayNode, &arrayOptions);
+
+		if (!arrayNode) return;
+
+		arrayForm = arrayOptions & kXMP_PropCompositeMask;
+		if ((!(arrayForm & kXMP_PropValueIsArray)) || (arrayForm & kXMP_PropArrayIsAlternate)) {
+			XMP_Throw("Named property must be non-alternate array", kXMPErr_BadParam);
+		}
+		size_t arrayChildCount = XMPUtils::GetNodeChildCount(arrayNode);
+		if (!arrayChildCount) return;
+
+		// Build the result, quoting the array items, adding separators. Hurl if any item isn't simple.
+		// Start the result with the first value, then add the rest with a preceeding separator.
+
+		spcINodeIterator arrayIter = XMPUtils::GetNodeChildIterator(arrayNode);
+
+		if ((XMPUtils::GetIXMPOptions(currItem) & kXMP_PropCompositeMask) != 0) XMP_Throw("Array items must be simple", kXMPErr_BadParam);
+
+		*catedStr = arrayIter->GetNode()->ConvertToSimpleNode()->GetValue()->c_str();
+		ApplyQuotes(catedStr, openQuote, closeQuote, allowCommas);
+
+		//ArrayNodes in the new DOM are homogeneous so need to check types of other items in the arary if the first one is Simple
+		for (arrayIter = arrayIter->Next(); arrayIter; arrayIter = arrayIter->Next()) {
+
+			XMP_VarString tempStr( arrayIter->GetNode()->ConvertToSimpleNode()->GetValue()->c_str());
+			ApplyQuotes(&tempStr, openQuote, closeQuote, allowCommas);
+			*catedStr += separator;
+			*catedStr += tempStr;
+		}
+	}
+	else {
+		return;
+	}
+
+
+}	// CatenateArrayItems_v2
+
+#endif
+// -------------------------------------------------------------------------------------------------
 /* class static */ void
 XMPUtils::CatenateArrayItems ( const XMPMeta & xmpObj,
 							   XMP_StringPtr   schemaNS,
@@ -868,6 +1337,19 @@ XMPUtils::CatenateArrayItems ( const XMPMeta & xmpObj,
 							   XMP_OptionBits  options,
 							   XMP_VarString * catedStr )
 {
+
+#if ENABLE_CPP_DOM_MODEL
+	
+	if(sUseNewCoreAPIs) {
+
+		//dynamic_cast<const XMPMeta2 &>(xmpObj);
+		CatenateArrayItems_v2(xmpObj, schemaNS, arrayName, separator, quotes, options, catedStr);
+		return;
+
+	}
+	
+#endif
+
 	XMP_Assert ( (schemaNS != 0) && (arrayName != 0) ); // ! Enforced by wrapper.
 	XMP_Assert ( (separator != 0) && (quotes != 0) && (catedStr != 0) ); // ! Enforced by wrapper.
 	
@@ -954,6 +1436,263 @@ XMPUtils::CatenateArrayItems ( const XMPMeta & xmpObj,
 
 
 // -------------------------------------------------------------------------------------------------
+// SeparateArrayItems_v2
+// ------------------
+#if ENABLE_CPP_DOM_MODEL
+/* class static */ void
+XMPUtils::SeparateArrayItems_v2(XMPMeta *	  xmpObj2,
+XMP_StringPtr  schemaNS,
+XMP_StringPtr  arrayName,
+XMP_OptionBits options,
+XMP_StringPtr  catedStr)
+{
+
+#if ENABLE_CPP_DOM_MODEL
+	using namespace AdobeXMPCore;
+	using namespace AdobeXMPCommon;
+	XMPMeta2 * xmpObj = NULL;
+	if(sUseNewCoreAPIs) {
+		xmpObj = dynamic_cast<XMPMeta2 *> (xmpObj2);
+	}
+	
+#endif
+	XMP_Assert((schemaNS != 0) && (arrayName != 0) && (catedStr != 0));	// ! Enforced by wrapper.
+	// TODO - check if the array item name should be arrayname one or karrayitem 
+	// TODO - check the find array in case array doesn't already exist
+	XMP_VarString itemValue;
+	size_t itemStart, itemEnd;
+	size_t nextSize, charSize = 0;
+	UniCharKind	  nextKind, charKind = UCK_normal;
+	UniCodePoint  nextChar, uniChar = 0;
+	XMP_OptionBits arrayOptions = 0;
+
+
+	bool preserveCommas = false;
+	if (options & kXMPUtil_AllowCommas) {
+		preserveCommas = true;
+		options ^= kXMPUtil_AllowCommas;
+	}
+
+	options = VerifySetOptions(options, 0);
+	if (options & ~kXMP_PropArrayFormMask) XMP_Throw("Options can only provide array form", kXMPErr_BadOptions);
+
+	// Find the array node, make sure it is OK. Move the current children aside, to be readded later if kept.
+
+	XMP_ExpandedXPath arrayPath;
+	ExpandXPath(schemaNS, arrayName, &arrayPath);
+	spINode arrayNode;
+	if (XMPUtils::FindCnstNode(xmpObj->mDOM, arrayPath, arrayNode, &arrayOptions)){
+
+		XMP_OptionBits arrayForm = arrayOptions & kXMP_PropArrayFormMask;
+		if ((arrayForm == 0) || (arrayForm & kXMP_PropArrayIsAlternate)) {
+			XMP_Throw("Named property must be non-alternate array", kXMPErr_BadXPath);
+		}
+
+		if ((options != 0) && (options != arrayForm)) XMP_Throw("Mismatch of specified and existing array form", kXMPErr_BadXPath);	// *** Right error?
+	}
+	else {
+		// The array does not exist, try to create it.
+
+		XPathStepInfo  lastPathSegment(arrayPath.back());
+		XMP_VarString arrayStep = lastPathSegment.step;
+		//arrayPath.pop_back();
+		spINode destNode;
+		XMP_Index insertIndex = 0;
+		if (!XMPUtils::FindNode(xmpObj->mDOM, arrayPath, kXMP_CreateNodes, options, destNode, &insertIndex, true)) {
+			XMP_Throw("Failure creating array node", kXMPErr_BadXPath);
+		}
+		std::string arrayNameSpace, arrayNameStr;
+		auto defaultMap = INameSpacePrefixMap::GetDefaultNameSpacePrefixMap();
+		arrayOptions = options;
+		XMPUtils::GetNameSpaceAndNameFromStepValue(lastPathSegment.step, defaultMap, arrayNameSpace, arrayNameStr);
+		//  Need to check Alternate first
+		if (arrayOptions & kXMP_PropArrayIsAlternate) {
+			arrayNode = IArrayNode::CreateAlternativeArrayNode( arrayNameSpace.c_str(), arrayNameSpace.size(), arrayNameStr.c_str(), arrayNameStr.size());
+		}
+		else if (arrayOptions & kXMP_PropArrayIsOrdered) {
+			arrayNode = IArrayNode::CreateOrderedArrayNode( arrayNameSpace.c_str(), arrayNameSpace.size(), arrayNameStr.c_str(), arrayNameStr.size() );
+		}
+		else if (arrayOptions & kXMP_PropArrayIsUnordered) {
+			arrayNode = IArrayNode::CreateUnorderedArrayNode( arrayNameSpace.c_str(), arrayNameSpace.size(), arrayNameStr.c_str(), arrayNameStr.size() );
+		}
+
+		else {
+			XMP_Throw("Failure creating array node", kXMPErr_BadXPath);
+		}
+		if (destNode->GetNodeType() == INode::kNTStructure) {
+
+			destNode->ConvertToStructureNode()->InsertNode(arrayNode);
+		}
+		else if (destNode->GetNodeType() == INode::kNTArray) {
+
+			destNode->ConvertToArrayNode()->AppendNode(arrayNode);
+		}
+		else {
+
+			XMP_Throw("Failure creating array node", kXMPErr_BadXPath);
+		}
+
+		if (!arrayNode) XMP_Throw("Failed to create named array", kXMPErr_BadXPath);
+	}
+
+
+	size_t oldChildCount = XMPUtils::GetNodeChildCount(arrayNode);
+	std::vector<XMP_VarString> oldArrayNodes;
+	std::vector<spINode> qualifiers;
+	
+	// used to handle duplicates
+	std::vector<bool> oldArrayNodeSeen(oldChildCount, false);
+	spcINodeIterator oldArrayChildIter = XMPUtils::GetNodeChildIterator(arrayNode);
+
+	for (; oldArrayChildIter; oldArrayChildIter = oldArrayChildIter->Next()) {
+
+		oldArrayNodes.push_back( oldArrayChildIter->GetNode()->ConvertToSimpleNode()->GetValue()->c_str());
+		if (oldArrayChildIter->GetNode()->HasQualifiers()) {
+
+			qualifiers.push_back(oldArrayChildIter->GetNode()->Clone());
+			/*for ( auto it = oldArrayChildIter->GetNode()->QualifiersIterator(); it; it = it->Next() ) {
+				qualifiers.push_back( it->GetNode()->Clone() );
+				}*/
+		}
+		else {
+			qualifiers.push_back(spINode());
+		}
+		
+	}
+
+	arrayNode->Clear(true, false);
+	// used to avoid typecasting repeatedly!
+	spIArrayNode tempArrayNode = arrayNode->ConvertToArrayNode();
+
+	size_t endPos = strlen(catedStr);
+
+	itemEnd = 0;
+	while (itemEnd < endPos) {
+
+
+
+		for (itemStart = itemEnd; itemStart < endPos; itemStart += charSize) {
+			ClassifyCharacter(catedStr, itemStart, &charKind, &charSize, &uniChar);
+			if ((charKind == UCK_normal) || (charKind == UCK_quote)) break;
+		}
+		if (itemStart >= endPos) break;
+
+		if (charKind != UCK_quote) {
+
+
+
+			for (itemEnd = itemStart; itemEnd < endPos; itemEnd += charSize) {
+
+				ClassifyCharacter(catedStr, itemEnd, &charKind, &charSize, &uniChar);
+
+				if ((charKind == UCK_normal) || (charKind == UCK_quote)) continue;
+				if ((charKind == UCK_comma) && preserveCommas) continue;
+				if (charKind != UCK_space) break;
+
+				if ((itemEnd + charSize) >= endPos) break;	// Anything left?
+				ClassifyCharacter(catedStr, (itemEnd + charSize), &nextKind, &nextSize, &nextChar);
+				if ((nextKind == UCK_normal) || (nextKind == UCK_quote)) continue;
+				if ((nextKind == UCK_comma) && preserveCommas) continue;
+				break;	// Have multiple spaces, or a space followed by a separator.
+
+			}
+
+			itemValue.assign(catedStr, itemStart, (itemEnd - itemStart));
+
+		}
+		else {
+
+			// Accumulate quoted values into a local string, undoubling internal quotes that
+			// match the surrounding quotes. Do not undouble "unmatching" quotes.
+
+			UniCodePoint openQuote = uniChar;
+			UniCodePoint closeQuote = GetClosingQuote(openQuote);
+
+			itemStart += charSize;	// Skip the opening quote;
+			itemValue.erase();
+
+			for (itemEnd = itemStart; itemEnd < endPos; itemEnd += charSize) {
+
+				ClassifyCharacter(catedStr, itemEnd, &charKind, &charSize, &uniChar);
+
+				if ((charKind != UCK_quote) || (!IsSurroundingQuote(uniChar, openQuote, closeQuote))) {
+
+					// This is not a matching quote, just append it to the item value.
+					itemValue.append(catedStr, itemEnd, charSize);
+
+				}
+				else {
+
+					// This is a "matching" quote. Is it doubled, or the final closing quote? Tolerate
+					// various edge cases like undoubled opening (non-closing) quotes, or end of input.
+
+					if ((itemEnd + charSize) < endPos) {
+						ClassifyCharacter(catedStr, itemEnd + charSize, &nextKind, &nextSize, &nextChar);
+					}
+					else {
+						nextKind = UCK_semicolon; nextSize = 0; nextChar = 0x3B;
+					}
+
+					if (uniChar == nextChar) {
+						// This is doubled, copy it and skip the double.
+						itemValue.append(catedStr, itemEnd, charSize);
+						itemEnd += nextSize;	// Loop will add in charSize.
+					}
+					else if (!IsClosingingQuote(uniChar, openQuote, closeQuote)) {
+						// This is an undoubled, non-closing quote, copy it.
+						itemValue.append(catedStr, itemEnd, charSize);
+					}
+					else {
+						// This is an undoubled closing quote, skip it and exit the loop.
+						itemEnd += charSize;
+						break;
+					}
+
+				}
+
+			}	// Loop to accumulate the quoted value.
+
+		}
+
+		// Add the separated item to the array. Keep a matching old value in case it had separators.
+
+		size_t oldChild;
+
+		spISimpleNode newItem;
+		for (oldChild = 1; oldChild <= oldChildCount; ++oldChild) {
+			if (!oldArrayNodeSeen[oldChild - 1] && itemValue == oldArrayNodes[oldChild - 1]) break;
+		}
+
+
+		if (oldChild == oldChildCount + 1) {
+			//	newItem = new XMP_Node ( arrayNode, kXMP_ArrayItemName, itemValue.c_str(), 0 );
+			newItem = ISimpleNode::CreateSimpleNode(arrayNode->GetNameSpace()->c_str(), arrayNode->GetNameSpace()->size(),
+				kXMP_ArrayItemName, AdobeXMPCommon::npos, itemValue.c_str());
+		}
+		else {
+			newItem = ISimpleNode::CreateSimpleNode(arrayNode->GetNameSpace()->c_str(), arrayNode->GetNameSpace()->size(),
+				kXMP_ArrayItemName, AdobeXMPCommon::npos, oldArrayNodes[oldChild - 1].c_str());
+			if (qualifiers[ oldChild - 1] && qualifiers[ oldChild - 1] ->HasQualifiers() ) {
+
+				for (auto it = qualifiers[oldChild - 1] ->QualifiersIterator(); it; it = it->Next()) {
+				
+					newItem->InsertQualifier(it->GetNode()->Clone());
+				}
+			}
+			oldArrayNodeSeen[oldChild - 1] = true;	// ! Don't match again, let duplicates be seen.
+		}
+
+		tempArrayNode->AppendNode(newItem);
+
+	}	// Loop through all of the returned items.
+
+	// Delete any of the old children that were not kept.
+
+
+}	// SeparateArrayItems_v2
+#endif
+
+// -------------------------------------------------------------------------------------------------
 // SeparateArrayItems
 // ------------------
 
@@ -964,6 +1703,13 @@ XMPUtils::SeparateArrayItems ( XMPMeta *	  xmpObj,
 							   XMP_OptionBits options,
 							   XMP_StringPtr  catedStr )
 {
+
+#if ENABLE_CPP_DOM_MODEL
+	if (sUseNewCoreAPIs) {
+		SeparateArrayItems_v2(xmpObj, schemaNS, arrayName, options, catedStr);
+		return;
+	}
+#endif
 	XMP_Assert ( (schemaNS != 0) && (arrayName != 0) && (catedStr != 0) );	// ! Enforced by wrapper.
 	
 	XMP_VarString itemValue;
@@ -987,7 +1733,7 @@ XMPUtils::SeparateArrayItems ( XMPMeta *	  xmpObj,
 	
 	XMP_ExpandedXPath arrayPath;
 	ExpandXPath ( schemaNS, arrayName, &arrayPath );
-	XMP_Node * arrayNode = FindNode ( &xmpObj->tree, arrayPath, kXMP_ExistingOnly );
+	XMP_Node * arrayNode = ::FindNode( &xmpObj->tree, arrayPath, kXMP_ExistingOnly );
 	
 	if ( arrayNode != 0 ) {
 		// The array exists, make sure the form is compatible. Zero arrayForm means take what exists.
@@ -998,7 +1744,7 @@ XMPUtils::SeparateArrayItems ( XMPMeta *	  xmpObj,
 		if ( (options != 0) && (options != arrayForm) ) XMP_Throw ( "Mismatch of specified and existing array form", kXMPErr_BadXPath );	// *** Right error?
 	} else {
 		// The array does not exist, try to create it.
-		arrayNode = FindNode ( &xmpObj->tree, arrayPath, kXMP_CreateNodes, (options | kXMP_PropValueIsArray) );
+		arrayNode = ::FindNode( &xmpObj->tree, arrayPath, kXMP_CreateNodes, (options | kXMP_PropValueIsArray) );
 		if ( arrayNode == 0 ) XMP_Throw ( "Failed to create named array", kXMPErr_BadXPath );
 	}
 
@@ -1131,6 +1877,14 @@ XMPUtils::ApplyTemplate ( XMPMeta *	      workingXMP,
 						  const XMPMeta & templateXMP,
 						  XMP_OptionBits  actions )
 {
+
+#if ENABLE_CPP_DOM_MODEL
+	if (sUseNewCoreAPIs) {
+		ApplyTemplate_v2(workingXMP, templateXMP, actions);
+		return;
+	}
+#endif
+
 	bool doClear   = XMP_OptionIsSet ( actions, kXMPTemplate_ClearUnnamedProperties );
 	bool doAdd     = XMP_OptionIsSet ( actions, kXMPTemplate_AddNewProperties );
 	bool doReplace = XMP_OptionIsSet ( actions, kXMPTemplate_ReplaceExistingProperties );
@@ -1246,6 +2000,15 @@ XMPUtils::RemoveProperties ( XMPMeta *		xmpObj,
 							 XMP_StringPtr	propName,
 							 XMP_OptionBits options )
 {
+
+#if ENABLE_CPP_DOM_MODEL
+	if (sUseNewCoreAPIs) {
+
+		RemoveProperties_v2(xmpObj, schemaNS, propName, options);
+		return;
+	}
+#endif
+
 	XMP_Assert ( (schemaNS != 0) && (propName != 0) );	// ! Enforced by wrapper.
 	
 	const bool doAll = XMP_TestOption (options, kXMPUtil_DoAllProperties );
@@ -1262,7 +2025,7 @@ XMPUtils::RemoveProperties ( XMPMeta *		xmpObj,
 		ExpandXPath ( schemaNS, propName, &expPath );
 		
 		XMP_NodePtrPos propPos;
-		XMP_Node * propNode = FindNode ( &(xmpObj->tree), expPath, kXMP_ExistingOnly, kXMP_NoOptions, &propPos );
+		XMP_Node * propNode = ::FindNode( &(xmpObj->tree), expPath, kXMP_ExistingOnly, kXMP_NoOptions, &propPos );
 		if ( propNode != 0 ) {
 			if ( doAll || IsExternalProperty ( expPath[kSchemaStep].step, expPath[kRootPropStep].step ) ) {
 				XMP_Node * parent = propNode->parent;	// *** Should have XMP_Node::RemoveChild(pos).
@@ -1298,7 +2061,7 @@ XMPUtils::RemoveProperties ( XMPMeta *		xmpObj,
 			for ( ; currAlias != endAlias; ++currAlias ) {
 				if ( strncmp ( currAlias->first.c_str(), nsPrefix, nsLen ) == 0 ) {
 					XMP_NodePtrPos actualPos;
-					XMP_Node * actualProp = FindNode ( &xmpObj->tree, currAlias->second, kXMP_ExistingOnly, kXMP_NoOptions, &actualPos );
+					XMP_Node * actualProp = ::FindNode( &xmpObj->tree, currAlias->second, kXMP_ExistingOnly, kXMP_NoOptions, &actualPos );
 					if ( actualProp != 0 ) {
 						XMP_Node * rootProp = actualProp;
 						while ( ! XMP_NodeIsSchema ( rootProp->parent->options ) ) rootProp = rootProp->parent;
@@ -1335,6 +2098,72 @@ XMPUtils::RemoveProperties ( XMPMeta *		xmpObj,
 }	// RemoveProperties
 
 
+#if AdobePrivate
+// -------------------------------------------------------------------------------------------------
+// AppendProperties
+// ----------------
+
+/* class static */ void
+XMPUtils::AppendProperties ( const XMPMeta & source,
+							 XMPMeta *		 dest,
+							 XMP_OptionBits	 options )
+{
+
+#if ENABLE_CPP_DOM_MODEL
+
+	if(sUseNewCoreAPIs) {
+		const XMPMeta2 & sourceCopy = dynamic_cast<const XMPMeta2 &> (source);
+		AppendProperties_v2(source, dest, options);
+		return;
+
+	}
+
+#endif
+
+	XMP_Assert ( dest != 0 );	// ! Enforced by wrapper.
+
+	const bool doAll	   = ((options & kXMPUtil_DoAllProperties) != 0);
+	const bool replaceOld  = ((options & kXMPUtil_ReplaceOldValues) != 0);
+	const bool deleteEmpty = ((options & kXMPUtil_DeleteEmptyValues) != 0);
+	const bool mergeCompound = (! replaceOld);	// ! Old API had implicit Add, superceded by explicit Replace.
+
+	for ( size_t schemaNum = 0, schemaLim = source.tree.children.size(); schemaNum != schemaLim; ++schemaNum ) {
+
+		const XMP_Node * sourceSchema = source.tree.children[schemaNum];
+
+		// Make sure we have a destination schema node. Remember if it is newly created.
+		
+		XMP_Node * destSchema = FindSchemaNode ( &dest->tree, sourceSchema->name.c_str(), kXMP_ExistingOnly );
+		const bool newDestSchema = (destSchema == 0);
+		if ( newDestSchema ) {
+			destSchema = new XMP_Node ( &dest->tree, sourceSchema->name, sourceSchema->value, kXMP_SchemaNode );
+			dest->tree.children.push_back ( destSchema );
+		}
+
+		// Process the source schema's children.
+		
+		for ( size_t propNum = 0, propLim = sourceSchema->children.size(); propNum < propLim; ++propNum ) {
+			const XMP_Node * sourceProp = sourceSchema->children[propNum];
+			if ( doAll || IsExternalProperty ( sourceSchema->name, sourceProp->name ) ) {
+				AppendSubtree ( sourceProp, destSchema, mergeCompound, replaceOld, deleteEmpty );
+			}
+		}
+		
+		if ( destSchema->children.empty() ) {
+			if ( newDestSchema ) {
+				delete ( destSchema );
+				dest->tree.children.pop_back();
+			} else if ( deleteEmpty ) {
+				DeleteEmptySchema ( destSchema );
+			}
+		}
+		
+	}
+
+}	// AppendProperties
+#endif
+
+
 // -------------------------------------------------------------------------------------------------
 // DuplicateSubtree
 // ----------------
@@ -1348,6 +2177,15 @@ XMPUtils::DuplicateSubtree ( const XMPMeta & source,
 							 XMP_StringPtr	 destRoot,
 							 XMP_OptionBits	 options )
 {
+
+#if ENABLE_CPP_DOM_MODEL
+	if(sUseNewCoreAPIs) {
+		(void)dynamic_cast<const XMPMeta2 &>(source);
+		return XMPUtils::DuplicateSubtree_v2(source, dest, sourceNS, sourceRoot, destNS, destRoot, options);
+	}
+
+#endif
+
 	IgnoreParam(options);
 	
 	bool fullSourceTree = false;
@@ -1379,7 +2217,7 @@ XMPUtils::DuplicateSubtree ( const XMPMeta & source,
 		// The destination must be an existing empty struct, copy all of the source top level as fields.
 
 		ExpandXPath ( destNS, destRoot, &destPath );
-		destNode = FindNode ( &dest->tree, destPath, kXMP_ExistingOnly );
+		destNode = ::FindNode( &dest->tree, destPath, kXMP_ExistingOnly );
 
 		if ( (destNode == 0) || (! XMP_PropIsStruct ( destNode->options )) ) {
 			XMP_Throw ( "Destination must be an existing struct", kXMPErr_BadXPath );
@@ -1461,10 +2299,10 @@ XMPUtils::DuplicateSubtree ( const XMPMeta & source,
 		sourceNode = FindConstNode ( &source.tree, sourcePath );
 		if ( sourceNode == 0 ) XMP_Throw ( "Can't find source subtree", kXMPErr_BadXPath );
 		
-		destNode = FindNode ( &dest->tree, destPath, kXMP_ExistingOnly );	// Dest must not yet exist.
+		destNode = ::FindNode ( &dest->tree, destPath, kXMP_ExistingOnly );	// Dest must not yet exist.
 		if ( destNode != 0 ) XMP_Throw ( "Destination subtree must not exist", kXMPErr_BadXPath );
 		
-		destNode = FindNode ( &dest->tree, destPath, kXMP_CreateNodes );	// Now create the dest.
+		destNode = ::FindNode ( &dest->tree, destPath, kXMP_CreateNodes );	// Now create the dest.
 		if ( destNode == 0 ) XMP_Throw ( "Can't create destination root node", kXMPErr_BadXPath );
 		
 		// Make sure the destination is not within the source! The source can't be inside the destination
@@ -1489,5 +2327,443 @@ XMPUtils::DuplicateSubtree ( const XMPMeta & source,
 
 }	// DuplicateSubtree
 
+
+#if AdobePrivate	// The multi-file utils are still private.
+
+// -------------------------------------------------------------------------------------------------
+// CollectMultiFileXMP
+// -------------------
+
+/* class static */ void
+XMPUtils::CollectMultiFileXMP ( const XMPMeta & inputXMP,
+		                        XMPMeta *       multiXMP,
+		                        XMP_OptionBits  options )
+{
+
+#if ENABLE_CPP_DOM_MODEL
+
+	if(sUseNewCoreAPIs) {
+		const XMPMeta2 & inputXMPCopy = dynamic_cast<const XMPMeta2 &>(inputXMP);
+		XMPMeta2 * multiXMPCopy = dynamic_cast<XMPMeta2 *> (multiXMP);
+		XMPUtils::CollectMultiFileXMP_v2(inputXMPCopy, multiXMPCopy, options);
+		return;
+	}
+	
+#endif
+
+	IgnoreParam(options);
+	
+	XMP_Node * xmpxSchema = FindSchemaNode ( &multiXMP->tree, kXMP_NS_Transient, kXMP_ExistingOnly );
+	
+	if ( xmpxSchema == 0 ) {
+	
+		// This is the first call. Copy all of the properties and initialize the transient info.
+		
+		if ( ! multiXMP->tree.children.empty() ) XMP_Throw ( "Multi XMP must be empty at first", kXMPErr_BadParam );
+		
+		for ( size_t schemaNum = 0, schemaLim = inputXMP.tree.children.size(); schemaNum < schemaLim; ++schemaNum ) {
+			const XMP_Node * inputSchema = inputXMP.tree.children[schemaNum];
+			CloneSubtree ( inputSchema, &multiXMP->tree );
+		}
+		
+		multiXMP->SetProperty ( kXMP_NS_Transient, "MultiFileCount", "1", kXMP_NoOptions );
+		multiXMP->SetProperty ( kXMP_NS_Transient, "DifferingProperties", 0, kXMP_PropValueIsArray );
+	
+	} else {
+	
+		// This is a later call, add the input XMP with checking for differing properties.
+		
+		XMP_Index fileCount;
+		XMP_OptionBits voidOptions;
+		bool found = multiXMP->GetProperty_Int ( kXMP_NS_Transient, "MultiFileCount", &fileCount, &voidOptions );
+		XMP_Assert ( found );
+		multiXMP->SetProperty_Int ( kXMP_NS_Transient, "MultiFileCount", fileCount+1, kXMP_NoOptions );
+		#if TraceMultiFile
+			fflush(stdout); printf ( "\nCollectMultiFileXMP adding file #%d\n", fileCount+1 ); fflush(stdout);
+		#endif
+		
+		// Go through the input file, comparing its properties to the aggregate. Since this loop
+		// does a find for multiProp, erasing it from multiSchema does not perturb the loop.
+		// Similarly, we loop on the input schema and lookup multiSchema, so removal of empty schema
+		// from the collected XMP won't cause problems. Empty "real" schema will get removed as the
+		// properties get shifted to the transient schema.
+		
+		for ( size_t schemaNum = 0, schemaLim = inputXMP.tree.children.size(); schemaNum < schemaLim; ++schemaNum ) {
+
+			const XMP_Node * inputSchema = inputXMP.tree.children[schemaNum];
+			XMP_Assert ( inputSchema->name != kXMP_NS_Transient );
+			#if TraceMultiFile
+				printf ( "\n  Checking new input schema %s\n", inputSchema->name.c_str() ); fflush(stdout);
+			#endif
+
+			XMP_Node * multiSchema = FindSchemaNode ( &multiXMP->tree, inputSchema->name.c_str(), kXMP_ExistingOnly );
+			XMP_Assert ( (multiSchema == 0) ||
+						 ((XMP_NodeIsSchema(multiSchema->options)) && (inputSchema->name == multiSchema->name)) );
+			
+			for ( size_t propNum = 0, propLim = inputSchema->children.size(); propNum < propLim; ++propNum ) {
+
+				const XMP_Node * inputProp = inputSchema->children[propNum];
+
+				XMP_Node *     multiProp = 0;
+				XMP_NodePtrPos multiPos;
+				if ( multiSchema != 0 ) multiProp = ::FindChildNode ( multiSchema, inputProp->name.c_str(), kXMP_ExistingOnly, &multiPos );
+
+				if ( multiProp == 0 ) {
+					NoteDifferingProperty ( xmpxSchema, 0, inputProp ); // Already different, or not in any earlier files.
+				} else if ( ! CompareSubtrees ( *inputProp, *multiProp ) ) {
+					NoteDifferingProperty ( xmpxSchema, multiProp, inputProp ); // This file differs from earlier files.
+					multiSchema->children.erase ( multiPos );	// *** Need RemoveChild utility.
+					delete multiProp;
+				}
+
+			}
+
+			if ( multiSchema != 0 ) DeleteEmptySchema ( multiSchema );	// ! All properties might now have differing values.
+			
+		}
+		
+		// Go through the aggregate, looking for properties that are not in the input file.
+		// ! The inner loop must take care to allow erasure of multiProp from multiSchema! Including
+		// ! the possibility of multiSchema becomming empty and getting deleted! 
+		
+		for ( size_t schemaNum = 0; schemaNum < multiXMP->tree.children.size(); ++schemaNum ) {
+
+			XMP_Node * multiSchema = multiXMP->tree.children[schemaNum];
+			if ( multiSchema->name == kXMP_NS_Transient ) continue;
+			#if TraceMultiFile
+				printf ( "\n  Checking old multi schema %s\n", multiSchema->name.c_str() ); fflush(stdout);
+			#endif
+
+			const XMP_Node * inputSchema = FindConstSchema ( &inputXMP.tree, multiSchema->name.c_str() );
+			
+			for ( size_t propNum = 0; propNum < multiSchema->children.size(); ++propNum ) {
+
+				XMP_Node * multiProp = multiSchema->children[propNum];
+
+				const XMP_Node * inputProp = 0;
+				if ( inputSchema != 0 ) inputProp = FindConstChild ( inputSchema, multiProp->name.c_str() );
+				if ( inputProp == 0 ) {
+					NoteDifferingProperty ( xmpxSchema, multiProp, 0 ); // Was matching, missing from the input.
+					multiSchema->children.erase ( multiSchema->children.begin() + propNum );
+					delete multiProp;
+					--propNum;	// ! The loop will increment it, leaving us at the correct next item.
+					if ( multiSchema->children.empty() ) {
+						DeleteEmptySchema ( multiSchema );
+						--schemaNum;	// ! The loop will increment it, leaving us at the correct next item.
+						break;
+					}
+				}
+
+			}
+			
+		}
+	
+	}
+
+}	// CollectMultiFileXMP
+
+
+// -------------------------------------------------------------------------------------------------
+// DistributeMultiFileXMP
+// ----------------------
+
+/* class static */ void
+XMPUtils::DistributeMultiFileXMP ( const XMPMeta & multiXMP,
+		                           XMPMeta *       outputXMP,
+		                           XMP_OptionBits  options )
+{
+#if ENABLE_CPP_DOM_MODEL
+	
+	if(sUseNewCoreAPIs) {
+		const XMPMeta2 & multiXMPCopy = dynamic_cast<const XMPMeta2 &> (multiXMP);
+		XMPMeta2 * outputXMPCopy = dynamic_cast<XMPMeta2 *>(outputXMP);
+		DistributeMultiFileXMP_v2(multiXMPCopy, outputXMPCopy, options);
+		return;
+	}
+#endif
+
+	IgnoreParam(options);
+	
+	// Delete the properties that, well, need deleting.
+	
+	const XMP_Node * xmpxSchema = FindConstSchema ( &multiXMP.tree, kXMP_NS_Transient );
+	const XMP_Node * delArray = NULL;
+	if ( xmpxSchema != 0 )
+		 delArray = FindConstChild ( xmpxSchema, "xmpx:DeletedProperties" );
+	if ( xmpxSchema != 0  &&  delArray != 0 )
+	{
+		for ( size_t propNum = 0, propLim = delArray->children.size(); propNum < propLim; ++propNum ) {
+			const XMP_Node * delItem = delArray->children[propNum];
+			const XMP_Node * delURI  = FindConstChild ( delItem, "xmpx:DelURI" );
+			const XMP_Node * delPath = FindConstChild ( delItem, "xmpx:DelPath" );
+			if ( (delURI == 0) || (delPath == 0) ) XMP_Throw ( "Invalid DeletedProperties entry", kXMPErr_BadXMP );
+			// outputXMP->DeleteProperty ( delURI->value.c_str(), delPath->value.c_str() );
+			RemoveProperties(outputXMP, delURI->value.c_str(), delPath->value.c_str(), kXMP_NoOptions);
+		}
+	}
+
+	// Update the normal (non-transient) properties, replacing any existing value.
+	
+	for ( size_t schemaNum = 0, schemaLim = multiXMP.tree.children.size(); schemaNum < schemaLim; ++schemaNum ) {
+
+		const XMP_Node * multiSchema = multiXMP.tree.children[schemaNum];
+		if ( multiSchema->name == kXMP_NS_Transient ) continue;
+		
+		XMP_Node * outputSchema = FindSchemaNode ( &outputXMP->tree, multiSchema->name.c_str(), kXMP_CreateNodes );
+		if ( outputSchema->options & kXMP_NewImplicitNode ) outputSchema->options ^= kXMP_NewImplicitNode;	// *** Should have Find option?
+		
+		for ( size_t propNum = 0, propLim = multiSchema->children.size(); propNum < propLim; ++propNum ) {
+			const XMP_Node * multiProp = multiSchema->children[propNum];
+			AppendSubtree ( multiProp, outputSchema, false, true, false );
+		}
+		
+	}
+}	// DistributeMultiFileXMP
+
+// -------------------------------------------------------------------------------------------------
+// IsPropertyMultiValued
+// ---------------------
+
+// *** Depends on the prefix for the transient namespace!
+
+/* class static */ bool
+XMPUtils::IsPropertyMultiValued ( const XMPMeta & multiXMP,
+			                      XMP_StringPtr   propNS,
+	                              XMP_StringPtr   propName )
+{
+
+#if ENABLE_CPP_DOM_MODEL
+	if(sUseNewCoreAPIs)  {
+		const XMPMeta2 & multiXMPCopy = dynamic_cast<const XMPMeta2 &>(multiXMP);
+		return IsPropertyMultiValued_v2(multiXMPCopy, propNS, propName);
+	}
+#endif
+
+	const XMP_Node * xmpxSchema = FindConstSchema ( &multiXMP.tree, kXMP_NS_Transient );
+	if ( xmpxSchema == 0 ) return false;
+	
+	const XMP_Node * dpArray = FindConstChild ( xmpxSchema, "xmpx:DifferingProperties" );
+	if ( dpArray == 0 ) return false;
+	
+	XMP_ExpandedXPath expPath;
+	ExpandXPath ( propNS, propName, &expPath );		// *** Should have LookupBase utility.
+	XMP_StringPtr baseProp = expPath[kRootPropStep].step.c_str();
+	if ( expPath[kRootPropStep].options & kXMP_StepIsAlias ) {
+		XMP_AliasMapPos aliasPos = sRegisteredAliasMap->find ( expPath[kRootPropStep].step );
+		XMP_Assert ( aliasPos != sRegisteredAliasMap->end() );
+		baseProp = aliasPos->second[kRootPropStep].step.c_str();
+	}
+	XMP_Index propIndex = LookupFieldSelector ( dpArray, "xmpx:DiffPath", baseProp );
+
+	return (propIndex != -1);
+
+}	// IsPropertyMultiValued
+
+
+// -------------------------------------------------------------------------------------------------
+// GetDateRange
+// ------------
+
+// *** Depends on the prefix for the transient namespace!
+
+/* class static */ bool
+XMPUtils::GetDateRange ( const XMPMeta & multiXMP,
+	                     XMP_StringPtr   propNS,
+                         XMP_StringPtr   propName,
+		                 XMP_DateTime *  oldest,
+		                 XMP_DateTime *  newest )
+{
+
+#if ENABLE_CPP_DOM_MODEL
+	if(sUseNewCoreAPIs) {
+		const XMPMeta2 & multiXMPCopy = dynamic_cast<const XMPMeta2 &>(multiXMP);
+		return GetDateRange_v2(multiXMPCopy, propNS, propName, oldest, newest);
+	}
+
+#endif
+
+	const XMP_Node * xmpxSchema = FindConstSchema ( &multiXMP.tree, kXMP_NS_Transient );
+	if ( xmpxSchema == 0 ) return false;
+	
+	const XMP_Node * dpArray = FindConstChild ( xmpxSchema, "xmpx:DifferingProperties" );
+	if ( dpArray == 0 ) return false;
+	
+	XMP_ExpandedXPath expPath;
+	ExpandXPath ( propNS, propName, &expPath );
+	if ( expPath.size() > 2 ) return false;	// Only top level properties are tracked.
+	XMP_StringPtr baseProp = expPath[kRootPropStep].step.c_str();
+	if ( expPath[kRootPropStep].options & kXMP_StepIsAlias ) {
+		XMP_AliasMapPos aliasPos = sRegisteredAliasMap->find ( expPath[kRootPropStep].step );
+		XMP_Assert ( aliasPos != sRegisteredAliasMap->end() );
+		baseProp = aliasPos->second[kRootPropStep].step.c_str();
+	}
+	XMP_Index propIndex = LookupFieldSelector ( dpArray, "xmpx:DiffPath", baseProp );
+	if ( propIndex == -1 ) return false;
+	
+	const XMP_Node * dpItem = dpArray->children[propIndex];
+	const XMP_Node * oldestNode = FindConstChild ( dpItem, "xmpx:DiffOldest" );
+	if ( oldestNode == 0 ) return false;
+	const XMP_Node * newestNode = FindConstChild ( dpItem, "xmpx:DiffNewest" );
+	if ( newestNode == 0 ) XMP_Throw ( "Missing xmpx:DiffNewest property", kXMPErr_BadXMP );
+	
+	XMPUtils::ConvertToDate ( oldestNode->value.c_str(), oldest );
+	XMPUtils::ConvertToDate ( newestNode->value.c_str(), newest );
+	return true;
+
+}	// GetDateRange
+
+
+// -------------------------------------------------------------------------------------------------
+// GetMergedListPath
+// -----------------
+
+// *** Depends on the prefix for the transient namespace!
+
+/* class static */ bool
+XMPUtils::GetMergedListPath ( const XMPMeta & multiXMP,
+		                      XMP_StringPtr   propNS,
+	                          XMP_StringPtr   propName,
+			                  XMP_VarString * pathStr )
+{
+
+#if ENABLE_CPP_DOM_MODEL
+	if(sUseNewCoreAPIs) {
+		const XMPMeta2 & multiXMPCopy = dynamic_cast<const XMPMeta2 &>(multiXMP);
+		return GetMergedListPath_v2(multiXMPCopy, propNS, propName, pathStr);
+	}
+
+#endif
+
+	pathStr->erase();
+	
+	const XMP_Node * xmpxSchema = FindConstSchema ( &multiXMP.tree, kXMP_NS_Transient );
+	if ( xmpxSchema == 0 ) return false;
+	
+	const XMP_Node * dpArray = FindConstChild ( xmpxSchema, "xmpx:DifferingProperties" );
+	if ( dpArray == 0 ) return false;
+	
+	XMP_ExpandedXPath expPath;
+	ExpandXPath ( propNS, propName, &expPath );
+	if ( expPath.size() > 2 ) return false;	// Only top level properties are tracked.
+	XMP_StringPtr baseProp = expPath[kRootPropStep].step.c_str();
+	if ( expPath[kRootPropStep].options & kXMP_StepIsAlias ) {
+		XMP_AliasMapPos aliasPos = sRegisteredAliasMap->find ( expPath[kRootPropStep].step );
+		XMP_Assert ( aliasPos != sRegisteredAliasMap->end() );
+		baseProp = aliasPos->second[kRootPropStep].step.c_str();
+	}
+	XMP_Index propIndex = LookupFieldSelector ( dpArray, "xmpx:DiffPath", baseProp );
+	if ( propIndex == -1 ) return false;
+	
+	const XMP_Node * dpItem = dpArray->children[propIndex];
+	const XMP_Node * mergedList = FindConstChild ( dpItem, "xmpx:DiffMergedList" );
+	if ( mergedList == 0 ) return false;
+	
+	++propIndex;	// ! Convert to a one-based index for use with ComposeArrayItemPath.
+	XMPUtils::ComposeArrayItemPath ( kXMP_NS_Transient, "DifferingProperties", propIndex, pathStr );
+	XMPUtils::ComposeStructFieldPath ( kXMP_NS_Transient, pathStr->c_str(), kXMP_NS_Transient, "DiffMergedList", pathStr );
+	return true;
+
+}	// GetMergedListPath
+
+
+// -------------------------------------------------------------------------------------------------
+// RemoveMultiValueInfo
+// --------------------
+
+// *** Depends on the prefix for the transient namespace!
+
+/* class static */ void
+XMPUtils::RemoveMultiValueInfo ( XMPMeta *     multiXMP,
+			                     XMP_StringPtr propNS,
+		                         XMP_StringPtr propName )
+{
+
+#if ENABLE_CPP_DOM_MODEL
+	if (sUseNewCoreAPIs) {
+		XMPMeta2 * multiXMPCopy = dynamic_cast<XMPMeta2 *>(multiXMP);
+		if (multiXMPCopy) {
+			return RemoveMultiValueInfo_v2(multiXMP, propNS, propName);
+		}
+	}
+#endif
+
+	XMP_Node * xmpxSchema = FindSchemaNode ( &multiXMP->tree, kXMP_NS_Transient, kXMP_ExistingOnly );
+	if ( xmpxSchema == 0 ) return;
+	
+	XMP_Node * diffArray = ::FindChildNode ( xmpxSchema, "xmpx:DifferingProperties", kXMP_ExistingOnly );
+	XMP_Node * delArray  = ::FindChildNode ( xmpxSchema, "xmpx:DeletedProperties", kXMP_ExistingOnly );
+	
+	if ( *propName == 0 ) {
+
+		// Remove the info for all properties in the given schema.
+		
+		if ( diffArray != 0 ) {
+			for ( size_t itemNum = 0; itemNum < diffArray->children.size(); ++itemNum ) {
+				XMP_Node * diffItem   = diffArray->children[itemNum];
+				XMP_Node * diffSchema = ::FindChildNode ( diffItem, "xmpx:DiffURI", kXMP_ExistingOnly );
+				XMP_Assert ( diffSchema != 0 );
+				if ( diffSchema->value == propNS ) {
+					delete diffItem;
+					diffArray->children.erase ( diffArray->children.begin() + itemNum );
+					--itemNum;	// ! Keep the loop index at the current number in the next pass.
+				}
+			}
+		}
+		
+		if ( delArray != 0 ) {
+			for ( size_t itemNum = 0; itemNum < delArray->children.size(); ++itemNum ) {
+				XMP_Node * delItem = delArray->children[itemNum];
+				XMP_Node * delURI  = ::FindChildNode ( delItem, "xmpx:DelURI", kXMP_ExistingOnly );
+				XMP_Assert ( delURI != 0 );
+				if ( delURI->value == propNS ) {
+					delete delItem;
+					delArray->children.erase ( delArray->children.begin() + itemNum );
+					--itemNum;	// ! Keep the loop index at the current number in the next pass.
+				}
+			}
+		}
+	
+	} else {
+	
+		// Remove the info for the named property.
+		
+		XMP_ExpandedXPath expPath;
+		ExpandXPath ( propNS, propName, &expPath );		// *** Should have LookupBase utility.
+		XMP_StringPtr baseProp = expPath[kRootPropStep].step.c_str();
+		if ( expPath[kRootPropStep].options & kXMP_StepIsAlias ) {
+			XMP_AliasMapPos aliasPos = sRegisteredAliasMap->find ( expPath[kRootPropStep].step );
+			XMP_Assert ( aliasPos != sRegisteredAliasMap->end() );
+			baseProp = aliasPos->second[kRootPropStep].step.c_str();
+		}
+
+		if ( diffArray != 0 ) {
+			for ( size_t itemNum = 0; itemNum < diffArray->children.size(); ++itemNum ) {
+				XMP_Node * diffItem = diffArray->children[itemNum];
+				XMP_Node * diffPath = ::FindChildNode ( diffItem, "xmpx:DiffPath", kXMP_ExistingOnly );
+				XMP_Assert ( diffPath != 0 );
+				if ( IsPathPrefix ( diffPath->value.c_str(), baseProp ) ) {	// ! Base path includes schema prefix.
+					delete diffItem;
+					diffArray->children.erase ( diffArray->children.begin() + itemNum );
+				}
+			}
+		}
+
+		if ( delArray != 0 ) {
+			for ( size_t itemNum = 0; itemNum < delArray->children.size(); ++itemNum ) {
+				XMP_Node * delItem = delArray->children[itemNum];
+				XMP_Node * delPath = ::FindChildNode ( delItem, "xmpx:DelPath", kXMP_ExistingOnly );
+				XMP_Assert ( delPath != 0 );
+				if ( IsPathPrefix ( delPath->value.c_str(), baseProp ) ) {	// ! Base path includes schema prefix.
+					delete delItem;
+					delArray->children.erase ( delArray->children.begin() + itemNum );
+				}
+			}
+		}
+	
+	}
+
+}	// RemoveMultiValueInfo
+
+#endif	// AdobePrivate
 
 // =================================================================================================

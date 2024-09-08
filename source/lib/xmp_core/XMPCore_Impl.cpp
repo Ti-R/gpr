@@ -1,25 +1,149 @@
 // =================================================================================================
-// Copyright 2004 Adobe Systems Incorporated
+// Copyright 2004 Adobe
 // All Rights Reserved.
 //
 // NOTICE:  Adobe permits you to use, modify, and distribute this file in accordance with the terms
-// of the Adobe license agreement accompanying it.
+// of the Adobe license agreement accompanying it. If you have received this file from a source other 
+// than Adobe, then your use, modification, or distribution of it requires the prior written permission
+// of Adobe.
 // =================================================================================================
 
-#include <algorithm>
+#if AdobePrivate
+// =================================================================================================
+// Change history
+// ==============
+//
+// Writers:
+//  AWL Alan Lillich
+//  ADC Amandeep Chawla
+//   AJ Abhishek Jindal
+//
+// mm-dd-yy who Description of changes, most recent on top.
+//
+// 02-06-15 AJ  5.6-c037 Fixing warnings due to implicit typecasting
+// 12-01-14 ADC 5.6-c029 Fixing issue with XMPCore static builds after changes related to
+//						 routing public exposed APIs through new DOM APIs.
+// 07-31-14 ADC 5.6-c022 [3790748] PDFLChef crashes/hangs indefinitely on main branch due to xmp library.
+//
+// 03-22-13 ADC 5.5-c016 Removing test code which got submitted by mistake.
+//
+// 12-12-11 AWL 5.3-c010 [3017939,3060455] Undo erroneous changes from misleading static analysis
+//				complaints that are breaking data structures and causing heap corruption.
+//
+// 10-27-09 AWL 5.0-c058 [2461780] Additional work in ApplyTemplate to avoid empty arrays and structs.
+// 10-22-09 AWL 5.0-c056 [2422169,2422172] Fix ApplyTemplate to not add empty array items or struct fields.
+// 06-15-09 AWL 5.0-c036 Mark critical locking variables volatile, fix all namespace table usage to be clean.
+// 06-11-09 AWL 5.0-c034 Finish threading revamp, implement friendly reader/writer locking.
+// 05-21-09 AWL 5.0-c032 Revamp glue again to pass SetClientString with each function.
+// 05-19-09 AWL 5.0-c031 First part of threading improvements, revamp the client glue.
+//
+// 02-05-08 AWL 4.2-f068 Use client memory routines for malloc/free also, so that leak checking works.
+// 02-05-08 AWL 4.2-c038 Use client memory routines for malloc/free also, so that leak checking works.
+// 11-30-07 AWL 4.2-c027 Expose XML_Node and ExpatAdapter so that XMPFiles can use them.
+// 07-17-07 AWL 4.2-c018 Change Mac to use pthread synchronization, needed for 64-bit builds.
+// 05-30-07 AWL 4.2-c017 Change operator new override to not throw for 0 length request, gcc on AIX
+//				returns a null pointer for 0 length.
+//
+// 10-12-06 AWL 4.1-c021 [1235816] Remove the new/delete overrides from static builds.
+// 09-21-06 AWL 4.1-c020 [1382367] Fix NormalizeLangArray to detect an item with no qualifiers.
+//
+// 03-24-06 AWL 4.0-c001 Adapt for move to ham-perforce, integrate XMPFiles, bump version to 4.
+//
+// 02-03-06 AWL 3.3-013 Add exception tracing to the XMP_Impl support macros. Rearrange XMP_Impl.hpp
+//				to be make it easier to find things.
+// 01-25-06 AWL 3.3-011 Fix iterator compare mistake in DumpNamespaces, detected by VC8. Replace
+//						null iterator notion, VC8 complains about compares to default iterator.
+// 01-24-06 AWL 3.3-010 Fix null iterator constant for VC8 strictness.
+// 08-08-05 AWL 3.3-004 Change ResolveAlias to allow general alias path.
+//
+// 06-06-05 AWL 3.2-110 [1205650] Fix bug in FindNode introduced in the 3.2-105 edits.
+// 06-01-05 AWL 3.2-105 [1110051] Add delete-existing option for SetProperty.
+// 04-13-05 AWL 3.2-017 Improve the documentation and behavior of Get/SetLocalizedText.
+// 04-11-05 AWL 3.2-016 Add AdobePrivate conditionals where appropriate.
+// 04-05-05 AWL 3.2-011 [0532345] Normalize "single value" alt-text arrays. Improve the way the root
+//				XML node is found and extract the previous toolkit version number.
+// 04-01-05 AWL 3.2-010 Add leafOptions parameter to FindNode, used when creating new nodes.
+// 04-01-05 AWL 3.2-009 [0621112,1033629] Add thread locks for UNIX.
+// 03-17-05 AWL 3.2-006 Revise Plain XMP parsing and serialization for latest proposal.
+// 02-14-05 AWL 3.2-003 Add thread locks.
+// 01-28-05 AWL 3.2-001 Remove BIB.
+//
+// 11-04-04 AWL 3.1.1-090 [1014853] Add XMPUtils::RemoveMultiValueInfo. Fix AppendProperties to call
+//				RemoveMultiValueInfo, i.e. to mimic a user edit.
+// 10-12-04 AWL 3.1.1-084 [0616293] Add name checking to VerifyQualName.
+// 10-06-04 AWL 3.1.1-083 [1061778] Add lock tracing under TraceXMPLocking.
+//
+// 07-15-04 AWL 3.1-064 [1016805] Get rid of kXMP_PropValueIsXML.
+// 07-13-04 AWL 3.1-058 [1014255] Remove empty schema nodes.
+// 07-13-04 AWL 3.1-057 [1006568] Check all XPath components for valid namespace prefixes.
+// 06-10-04 AWL 3.1-047 Fix more HPUX and AIX compilation errors and warnings.
+//
+// 04-30-04 AWL Add new & delete operators that call BIBMemory functions. Change static objects that
+//				require allocation to explicit pointers.
+// 03-17-04 AWL Cleanup error exceptions, make sure all have a reasonable message. Change schema
+//				checks in VerifyXPathRoot to require a URI, don't allow just a prefix.
+// 02-17-04 AWL Add CompareSubtrees.
+// 01-28-04 AWL Extract common routines from XMPMeta.cpp.
+//
+// =================================================================================================
+#endif /* AdobePrivate */
 
 #include "public/include/XMP_Environment.h"	// ! This must be the first include!
 #include "public/include/XMP_Version.h"
-#include "XMPCore_Impl.hpp"
-#include "XMPMeta.hpp"	// *** For use of GetNamespacePrefix in FindSchemaNode.
-
-#include "UnicodeInlines.incl_cpp"
+#include "XMPCore/source/XMPCore_Impl.hpp"
+#include "XMPCore/source/XMPMeta.hpp"	// *** For use of GetNamespacePrefix in FindSchemaNode.
+#include "source/UnicodeInlines.incl_cpp"
+#if AdobePrivate
+#include "XMPCore/XMPCoreDefines.h"
+#endif
+#include <algorithm>
 
 using namespace std;
 
 #if XMP_WinBuild
 	#pragma warning ( disable : 4290 )	// C++ exception specification ignored except ... not __declspec(nothrow)
 	#pragma warning ( disable : 4800 )	// forcing value to bool 'true' or 'false' (performance warning)
+#endif
+
+// *** Add debug codegen checks, e.g. that typical masking operations really work
+// *** Make option constants 0x...UL.
+
+// Internal code should be using #if with XMP_MacBuild, XMP_WinBuild, XMP_UNIXBuild or XMP_iOSBuild.
+// This is a sanity check in case of accidental use of *_ENV. Some clients use the poor
+// practice of defining the *_ENV macro with an empty value.
+#if defined ( MAC_ENV )
+	#if ! MAC_ENV
+		#error "MAC_ENV must be defined so that \"#if MAC_ENV\" is true"
+	#endif
+	#if defined(IOS_ENV)
+		#if ! IOS_ENV
+			#error "IOS_ENV must be defined so that \"#if IOS_ENV\" is true"
+		#endif
+    #endif
+#elif defined ( WIN_ENV )
+	#if ! WIN_ENV
+		#error "WIN_ENV must be defined so that \"#if WIN_ENV\" is true"
+	#endif
+#elif defined ( UNIX_ENV )
+	#if ! UNIX_ENV
+		#error "UNIX_ENV must be defined so that \"#if UNIX_ENV\" is true"
+	#endif
+#elif defined ( IOS_ENV )
+    #if ! IOS_ENV
+        #error "IOS_ENV must be defined so that \"#if IOS_ENV\" is true"
+    #endif
+#elif defined(WIN_UNIVERSAL_ENV)
+	#if !WIN_UNIVERSAL_ENV
+		#error "WIN_UNIVERSAL_ENV must be defined so that \"#if WIN_UNIVERSAL_ENV\" is true"
+	#endif
+#elif defined ( ANDROID_ENV )
+    #if ! ANDROID_ENV
+        #error "ANDROID_ENV must be defined so that \"#if ANDROID_ENV\" is true"
+    #endif
+#elif defined ( WEB_ENV )
+    #if ! WEB_ENV
+        #error "WEB_ENV must be defined so that \"#if WEB_ENV\" is true"
+    #endif
 #endif
 
 // =================================================================================================
@@ -32,17 +156,91 @@ XMP_NamespaceTable * sRegisteredNamespaces = 0;
 
 XMP_AliasMap * sRegisteredAliasMap = 0;
 
-void *              voidVoidPtr    = 0;	// Used to backfill null output parameters.
-XMP_StringPtr		voidStringPtr  = 0;
-XMP_StringLen		voidStringLen  = 0;
-XMP_OptionBits		voidOptionBits = 0;
-XMP_Uns8			voidByte       = 0;
-bool				voidBool       = 0;
-XMP_Int32			voidInt32      = 0;
-XMP_Int64			voidInt64      = 0;
-double				voidDouble     = 0.0;
-XMP_DateTime		voidDateTime;
-WXMP_Result 		void_wResult;
+XMP_ReadWriteLock * sDefaultNamespacePrefixMapLock = 0;
+
+
+// *** CTECHXMP-4169947 ***//
+
+//void *              voidVoidPtr    = 0;	// Used to backfill null output parameters.
+//XMP_StringPtr		voidStringPtr  = 0;
+//XMP_StringLen		voidStringLen  = 0;
+//XMP_OptionBits		voidOptionBits = 0;
+//XMP_Uns8			voidByte       = 0;
+//bool				voidBool       = 0;
+//XMP_Int32			voidInt32      = 0;
+//XMP_Int64			voidInt64      = 0;
+//double				voidDouble     = 0.0;
+//XMP_DateTime		voidDateTime;
+//WXMP_Result 		void_wResult;
+
+//#if AdobePrivate
+//	XMP_DerivedDocInfo	voidDocInfo;
+//	XMP_EmbeddedDocInfo	voidEmbeddedInfo;
+//	XMP_PacketInfo      voidPacketInfo;
+//#endif
+
+
+	#if ENABLE_CPP_DOM_MODEL
+		XMP_Bool         sUseNewCoreAPIs = false;
+	#endif
+
+	#if ! XMP_StaticBuild
+
+		#undef malloc
+		#undef free
+#if !AdobePrivate
+		typedef void * (*XMP_AllocateProc) (size_t size);
+
+		typedef void(*XMP_DeleteProc)   (void * ptr);
+
+#endif
+
+	XMP_AllocateProc sXMP_MemAlloc = malloc;
+	XMP_DeleteProc   sXMP_MemFree  = free;
+
+
+//******* SEE : CTECHXMP-4169971 *************//
+#if 0
+		#define malloc(size) (*sXMP_MemAlloc) ( size )
+		#define free(addr)   (*sXMP_MemFree) ( addr )
+		
+		void * operator new ( size_t len ) throw ( std::bad_alloc )
+		{
+			void * mem = (*sXMP_MemAlloc) ( len );
+			if ( (mem == 0) && (len != 0) ) throw std::bad_alloc();
+			return mem;
+		}
+
+        void * operator new( std::size_t len, const std::nothrow_t & _nothrow ) throw () {
+            void * mem = (*sXMP_MemAlloc) ( len );
+            return mem;
+        }
+		
+		void * operator new[] ( size_t len ) throw ( std::bad_alloc )
+		{
+			void * mem = (*sXMP_MemAlloc) ( len );
+			if ( (mem == 0) && (len != 0) ) throw std::bad_alloc();
+			return mem;
+		}
+		
+		void operator delete ( void * ptr ) throw()
+		{
+			if ( ptr != 0 ) (*sXMP_MemFree) ( ptr );
+		}
+		
+		void operator delete ( void * ptr, const std::nothrow_t & _nothrow ) throw ()
+		{
+			return operator delete( ptr );
+		}
+		
+		void operator delete[] ( void * ptr ) throw()
+		{
+			if ( ptr != 0 ) (*sXMP_MemFree) ( ptr );
+		}
+#endif
+
+#endif
+
 
 // =================================================================================================
 // Local Utilities
@@ -188,7 +386,7 @@ FindIndexedItem ( XMP_Node * arrayNode, const XMP_VarString & indexStep, bool cr
 // The value portion is a string quoted by ''' or '"'. The value may contain any character including
 // a doubled quoting character. The value may be empty.
 
-static void
+void
 SplitNameAndValue ( const XMP_VarString & selStep, XMP_VarString * nameStr, XMP_VarString * valueStr )
 {
 	XMP_StringPtr partBegin = selStep.c_str();
@@ -239,7 +437,7 @@ SplitNameAndValue ( const XMP_VarString & selStep, XMP_VarString * nameStr, XMP_
 static XMP_Index
 LookupQualSelector ( XMP_Node * arrayNode, const XMP_VarString & qualName, XMP_VarString & qualValue )
 {
-	XMP_Index index;
+	size_t index;
 		
 	if ( qualName == "xml:lang" ) {
 	
@@ -249,7 +447,7 @@ LookupQualSelector ( XMP_Node * arrayNode, const XMP_VarString & qualName, XMP_V
 	
 	} else {
 
-		XMP_Index itemLim;
+		size_t itemLim;
 		for ( index = 0, itemLim = arrayNode->children.size(); index != itemLim; ++index ) {
 
 			const XMP_Node * currItem = arrayNode->children[index];
@@ -269,7 +467,7 @@ LookupQualSelector ( XMP_Node * arrayNode, const XMP_VarString & qualName, XMP_V
 
 	}
 	
-	return index;
+	return static_cast<XMP_Index>( index );
 	
 }	// LookupQualSelector
 
@@ -324,7 +522,7 @@ FollowXPathStep	( XMP_Node *	   parentNode,
 		if ( stepKind == kXMP_ArrayIndexStep ) {
 			index = FindIndexedItem ( parentNode, nextStep.step, createNodes );
 		} else if ( stepKind == kXMP_ArrayLastStep ) {
-			index = parentNode->children.size() - 1;
+			index = static_cast<XMP_Index>( parentNode->children.size() - 1 );
 		} else if ( stepKind == kXMP_FieldSelectorStep ) {
 			XMP_VarString fieldName, fieldValue;
 			SplitNameAndValue ( nextStep.step, &fieldName, &fieldValue );
@@ -564,7 +762,7 @@ ExpandXPath	( XMP_StringPtr			schemaNS,
 	XMP_Assert ( (schemaNS != 0) && (propPath != 0) && (*propPath != 0) && (expandedXPath != 0) );
 	
 	XMP_StringPtr	stepBegin, stepEnd;
-	XMP_StringPtr	qualName, nameEnd;
+	XMP_StringPtr	qualName = 0 , nameEnd = 0;
 	XMP_VarString	currStep;
 		
 	size_t resCount = 2;	// Guess at the number of steps. At least 2, plus 1 for each '/' or '['.
@@ -724,7 +922,9 @@ XMP_Node *
 FindSchemaNode	( XMP_Node *		xmpTree,
 				  XMP_StringPtr		nsURI,
 				  bool				createNodes,
-				  XMP_NodePtrPos *	ptrPos /* = 0 */ )
+				  XMP_NodePtrPos *	ptrPos /* = 0 */,
+				  PrefixSearchFnPtr prefixSearchFnPtr/* = NULL*/,
+				  void * privateData/* = NULL*/ )
 {
 	XMP_Node * schemaNode = 0;
 	
@@ -747,7 +947,13 @@ FindSchemaNode	( XMP_Node *		xmpTree,
 		try {
 			XMP_StringPtr prefixPtr;
 			XMP_StringLen prefixLen;
-			bool found = XMPMeta::GetNamespacePrefix ( nsURI, &prefixPtr, &prefixLen );	// *** Use map directly?
+			bool found ( false );
+			if (prefixSearchFnPtr && privateData) {
+				found = prefixSearchFnPtr ( privateData, nsURI, &prefixPtr, &prefixLen );
+			}
+			else {
+				found = XMPMeta::GetNamespacePrefix ( nsURI, &prefixPtr, &prefixLen );	// *** Use map directly?
+			}
 			XMP_Assert ( found );
 			schemaNode->value.assign ( prefixPtr, prefixLen );
 		} catch (...) {	// Don't leak schemaNode in case of an exception before adding it to the children vector.
@@ -853,7 +1059,7 @@ FindQualifierNode	( XMP_Node *		parent,
 	
 	if ( (qualNode == 0) && createNodes ) {
 
-		qualNode = new XMP_Node ( parent, qualName, (static_cast<unsigned long>(kXMP_PropIsQualifier) | static_cast<unsigned long>(kXMP_NewImplicitNode)) );
+		qualNode = new XMP_Node ( parent, qualName, (kXMP_PropIsQualifier | kXMP_NewImplicitNode) );
 		parent->options |= kXMP_PropHasQualifiers;
 
 		const bool isLang 	 = XMP_LitMatch ( qualName, "xml:lang" );
@@ -895,7 +1101,7 @@ FindQualifierNode	( XMP_Node *		parent,
 XMP_Index
 LookupFieldSelector ( const XMP_Node * arrayNode, XMP_StringPtr fieldName, XMP_StringPtr fieldValue )
 {
-	XMP_Index index, itemLim;
+	size_t index, itemLim;
 	
 	for ( index = 0, itemLim = arrayNode->children.size(); index != itemLim; ++index ) {
 
@@ -918,7 +1124,7 @@ LookupFieldSelector ( const XMP_Node * arrayNode, XMP_StringPtr fieldName, XMP_S
 	}
 	
 	if ( index == itemLim ) index = -1;
-	return index;
+	return static_cast<XMP_Index>( index );
 	
 }	// LookupFieldSelector
 
@@ -935,8 +1141,8 @@ LookupLangItem ( const XMP_Node * arrayNode, XMP_VarString & lang )
 		XMP_Throw ( "Language item must be used on array", kXMPErr_BadXPath );
 	}
 
-	XMP_Index index   = 0;
-	XMP_Index itemLim = arrayNode->children.size();
+	size_t index   = 0;
+	size_t itemLim = arrayNode->children.size();
 	
 	for ( ; index != itemLim; ++index ) {
 		const XMP_Node * currItem = arrayNode->children[index];
@@ -946,7 +1152,7 @@ LookupLangItem ( const XMP_Node * arrayNode, XMP_VarString & lang )
 	}
 	
 	if ( index == itemLim ) index = -1;
-	return index;
+	return static_cast<XMP_Index>( index );
 	
 }	// LookupLangItem
 
